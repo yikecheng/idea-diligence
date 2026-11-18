@@ -1,0 +1,138 @@
+{
+  "brief": {
+    "title": "Return Deadline Assistant",
+    "customer": "Frequent US online shoppers who sometimes return electronics or marketplace purchases at large retailers.",
+    "problem": "Shoppers who already want to return an item can lose track of the deadline or follow the wrong rule when an order involves a marketplace seller, delayed delivery, or a membership exception.",
+    "solution": "Use a redacted receipt or selected order details to show a return deadline card, the retailer rule supporting it, any facts still needed, and an optional reminder.",
+    "known": "Public return policies are available for some retailers. The team has not measured whether shoppers use sourced guidance or pay for it."
+  },
+  "assumptions": [
+    {
+      "id": "A1",
+      "category": "defensibility",
+      "statement": "Receipt forwarding and automatic deadline reminders give the product a distinct reason to switch.",
+      "impact": 5,
+      "uncertainty": 5,
+      "reason": "A generic reminder needs to beat alternatives on more than convenience if the same intake and reminder workflow is already on offer."
+    },
+    {
+      "id": "A2",
+      "category": "desirability",
+      "statement": "Shoppers facing a policy exception will use source-linked guidance instead of a generic deadline reminder.",
+      "impact": 5,
+      "uncertainty": 4,
+      "reason": "Source-linked guidance could matter when choosing which deadline to act on. Product descriptions and policy pages provide no usage evidence for this audience."
+    },
+    {
+      "id": "A3",
+      "category": "feasibility",
+      "statement": "The retailer name and order date are enough to determine a reliable return deadline.",
+      "impact": 4,
+      "uncertainty": 4,
+      "reason": "A reminder can mislead when a different date starts the clock or a seller follows a separate rule."
+    },
+    {
+      "id": "A4",
+      "category": "viability",
+      "statement": "Frequent shoppers will pay a recurring fee after using the service for two attempted returns.",
+      "impact": 3,
+      "uncertainty": 5,
+      "reason": "The opportunity is episodic. A repeat-use or pricing test needs to precede any revenue estimate."
+    },
+    {
+      "id": "A5",
+      "category": "feasibility",
+      "statement": "A first version can show buyers checkable return rules from official pages for two initial retailers.",
+      "impact": 3,
+      "uncertainty": 3,
+      "reason": "A narrow launch needs public policy text it can link and explain. A confirmed deadline still depends on what is known about the order."
+    }
+  ],
+  "sources": [
+    {
+      "id": "S1",
+      "title": "Return Window · Getting started",
+      "url": "https://returnwindow.app/get-started/",
+      "passage": "Our system automatically detects the retailer, extracts your order details, and calculates when your return window closes based on the store's policy.",
+      "kind": "page_excerpt",
+      "retrieved_at": "2026-11-18"
+    },
+    {
+      "id": "S2",
+      "title": "Roundtrip Returns · Developer's App Store description",
+      "url": "https://apps.apple.com/us/app/roundtrip-returns/id6784815810",
+      "passage": "Email forwarding (optional) — forward an order email to your private address, and the return shows up parsed and ready",
+      "kind": "page_excerpt",
+      "retrieved_at": "2026-11-18"
+    },
+    {
+      "id": "S3",
+      "title": "Best Buy · Return and exchange periods",
+      "url": "https://www.bestbuy.com/site/help-topics/return-exchange-policy/pcmcat260800050014.c",
+      "passage": "the time period begins the day you receive your product",
+      "kind": "page_excerpt",
+      "retrieved_at": "2026-11-18"
+    },
+    {
+      "id": "S4",
+      "title": "Target · Returns and exceptions",
+      "url": "https://www.target.com/help/article/000061980",
+      "passage": "Some items sold by Target have a modified return policy noted on the receipt, packing slip",
+      "kind": "page_excerpt",
+      "retrieved_at": "2026-11-18"
+    }
+  ],
+  "links": [
+    {
+      "assumption_id": "A1",
+      "source_id": "S1",
+      "stance": "challenges",
+      "reason": "Return Window advertises order-detail extraction and policy-based deadline calculation from forwarded emails."
+    },
+    {
+      "assumption_id": "A1",
+      "source_id": "S2",
+      "stance": "challenges",
+      "reason": "Roundtrip also advertises order-email forwarding followed by automatic parsing."
+    },
+    {
+      "assumption_id": "A2",
+      "source_id": "S4",
+      "stance": "context",
+      "reason": "Retailer policy exceptions make a verification interaction worth testing. The policy offers no evidence that shoppers will choose that interaction."
+    },
+    {
+      "assumption_id": "A3",
+      "source_id": "S3",
+      "stance": "challenges",
+      "reason": "The clock can start on receipt rather than purchase. An order date alone can produce the wrong deadline."
+    },
+    {
+      "assumption_id": "A3",
+      "source_id": "S4",
+      "stance": "challenges",
+      "reason": "Item-level policy can differ from the store's default. The system needs a way to identify or flag these cases."
+    },
+    {
+      "assumption_id": "A5",
+      "source_id": "S3",
+      "stance": "supports",
+      "reason": "The retailer publishes a rule the tool can display for a relevant Best Buy scenario."
+    },
+    {
+      "assumption_id": "A5",
+      "source_id": "S4",
+      "stance": "supports",
+      "reason": "Target publishes where to check for item-level exceptions. This supports a narrow, source-linked walkthrough."
+    }
+  ],
+  "experiment": {
+    "assumption_id": "A2",
+    "title": "Compare a sourced deadline card with a standard reminder",
+    "procedure": "Recruit 12 frequent online shoppers. Use fictional orders so nobody shares private receipts. Give each shopper two matched exception cases and rotate which case uses a plain reminder or a card with a policy source and missing-fact prompt. Ask them to act on each order and then choose a format for a third order. Score their choices against a checklist written before testing.",
+    "metric": "Number of participants who handle the exception correctly with the sourced card and choose that format for a third order.",
+    "threshold": "Move to a two-retailer pilot if at least 8 of 12 qualify. Below 8, review where people misunderstood the policy or preferred the simpler reminder.",
+    "time": "One week for recruiting and 15-minute sessions",
+    "cost": "$0 in software for a clickable mockup, excluding research labor and any participant incentives"
+  }
+}
