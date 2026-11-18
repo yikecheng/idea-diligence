@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from .decision import EVIDENCE_VERDICTS, OUTCOME_DECISIONS, OUTCOME_STATUSES
+from .local_analysis import _founder_experiment
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS runs (
@@ -35,6 +36,11 @@ CREATE TABLE IF NOT EXISTS experiment_outcomes (
     CHECK ((participants IS NULL AND qualifying IS NULL) OR
            (participants IS NOT NULL AND qualifying IS NOT NULL AND
             participants >= 0 AND qualifying >= 0 AND qualifying <= participants))
+);
+CREATE TABLE IF NOT EXISTS experiment_plans (
+    run_id INTEGER PRIMARY KEY REFERENCES runs(id) ON DELETE CASCADE,
+    created_at TEXT NOT NULL,
+    plan TEXT NOT NULL
 );
 """
 
@@ -80,7 +86,7 @@ def load_run(run_id: int, path: Path | None = None) -> dict | None:
 
 
 def load_workspace(run_id: int, path: Path | None = None) -> dict:
-    """Read the run's evidence reviews and recorded outcome in one snapshot."""
+    """Read the run's evidence reviews, later plan and outcome in one snapshot."""
     with closing(connect(path or database_path())) as db, db:
         db.row_factory = sqlite3.Row
         db.execute("BEGIN")
@@ -94,14 +100,44 @@ def load_workspace(run_id: int, path: Path | None = None) -> dict:
                FROM experiment_outcomes WHERE run_id = ?""",
             (run_id,),
         ).fetchone()
-    return {"reviews": [dict(row) for row in reviews], "outcome": dict(outcome) if outcome else None}
+        plan = _load_founder_plan(db, run_id)
+    return {"reviews": [dict(row) for row in reviews], "outcome": dict(outcome) if outcome else None,
+            "plan": plan}
 
 
 def _require_report(db: sqlite3.Connection, run_id: int) -> dict:
     row = db.execute("SELECT report FROM runs WHERE id = ?", (run_id,)).fetchone()
     if row is None:
-        raise ValueError("This analysis must be saved before adding a review or outcome.")
+        raise ValueError("This analysis must be saved before adding a review, plan, or outcome.")
     return json.loads(row[0])
+
+
+def _load_founder_plan(db: sqlite3.Connection, run_id: int) -> dict | None:
+    row = db.execute("SELECT plan FROM experiment_plans WHERE run_id = ?", (run_id,)).fetchone()
+    return json.loads(row[0]) if row else None
+
+
+def save_founder_plan(run_id: int, plan: dict, path: Path | None = None) -> dict:
+    """Attach a single founder-authored experiment to a run that had none."""
+    with closing(connect(path or database_path())) as db, db:
+        report = _require_report(db, run_id)
+        if report.get("experiment"):
+            raise ValueError("This analysis already has an experiment plan.")
+        assumptions = report.get("assumptions", [])
+        if not assumptions:
+            raise ValueError("This analysis needs an assumption before you add an experiment.")
+        normalized = _founder_experiment(plan, assumptions)
+        if normalized is None:
+            raise ValueError("Enter the experiment plan before saving.")
+        saved = db.execute(
+            """INSERT INTO experiment_plans (run_id, created_at, plan)
+               VALUES (?, ?, ?) ON CONFLICT (run_id) DO NOTHING""",
+            (run_id, datetime.now(timezone.utc).isoformat(timespec="seconds"),
+             json.dumps(normalized, ensure_ascii=False)),
+        )
+        if not saved.rowcount:
+            raise ValueError("This analysis already has an experiment plan.")
+    return normalized
 
 
 def _note(value: str, limit: int) -> str:
@@ -146,7 +182,7 @@ def save_experiment_outcome(
     run_id: int, status: str, participants: int | None, qualifying: int | None, notes: str = "",
     decision: str = "undecided", path: Path | None = None,
 ) -> dict:
-    """Record observed results and a founder's decision against the original test."""
+    """Record observed results and a founder's decision against the saved test."""
     if status not in OUTCOME_STATUSES or decision not in OUTCOME_DECISIONS:
         raise ValueError("Choose a valid experiment status and decision.")
     if (participants, qualifying) != (None, None) and (
@@ -159,7 +195,7 @@ def save_experiment_outcome(
         raise ValueError("Record the counts or describe the observed outcome before marking the test complete.")
     with closing(connect(path or database_path())) as db, db:
         report = _require_report(db, run_id)
-        experiment = report.get("experiment")
+        experiment = report.get("experiment") or _load_founder_plan(db, run_id)
         if not experiment:
             raise ValueError("This analysis does not have an experiment to track.")
         record = {

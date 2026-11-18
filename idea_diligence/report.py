@@ -63,7 +63,8 @@ def _source_rows(report: dict, workspace: dict) -> tuple[dict, list]:
 
 
 def _mode(report: dict) -> str:
-    return "Curated evidence replay" if report["mode"] == "demo" else "Live model and search"
+    return {"demo": "Curated evidence replay", "live": "Live model and search",
+            "local": "Local evidence review"}.get(report["mode"], "Research")
 
 
 def _observed_metric(outcome: dict) -> str:
@@ -114,8 +115,9 @@ def render_markdown(report: dict, workspace: dict | None = None) -> str:
                 lines.append(f"**Founder review** — {_review_label(review)}"
                              + (f" · {plain(review['note'])}" if review.get("note") else ""))
             lines.append("")
-    experiment = report.get("experiment")
-    lines += ["## Recommended experiment", ""]
+    experiment = report.get("experiment") or workspace.get("plan")
+    experiment_label = "Experiment plan" if workspace.get("plan") or report["mode"] == "local" else "Recommended experiment"
+    lines += [f"## {experiment_label}", ""]
     if experiment:
         lines += [f"### {plain(experiment['title'])}", ""]
         for key, label in EXPERIMENT_FIELDS:
@@ -186,7 +188,8 @@ def render_html(report: dict, workspace: dict | None = None) -> str:
     brief = report["brief"]
     grouped, leads = _source_rows(report, workspace)
     assumptions = report.get("assumptions", [])
-    experiment = report.get("experiment")
+    experiment = report.get("experiment") or workspace.get("plan")
+    experiment_label = "Experiment plan" if workspace.get("plan") or report["mode"] == "local" else "Recommended experiment"
     outcome = workspace.get("outcome")
     brief_html = "".join(f'<div><dt>{label}</dt><dd>{_html(brief[key])}</dd></div>'
                          for key, label in BRIEF_FIELDS if brief.get(key))
@@ -223,11 +226,11 @@ def render_html(report: dict, workspace: dict | None = None) -> str:
     if usage.get("elapsed_seconds") is not None:
         counts.append(f'{_html(usage["elapsed_seconds"])} seconds')
     usage_html = f'<p class="muted">{" · ".join(counts)}</p>' if counts else ""
-    provenance = (
-        '<p class="muted">Curated scenario with source excerpts and a proposed experiment.</p>'
-        if report["mode"] == "demo"
-        else '<p class="muted">Research findings reflect the sources retrieved in this run. Customer behavior requires direct evidence.</p>'
-    )
+    provenance_text = {
+        "demo": "Curated scenario with source excerpts and a proposed experiment.",
+        "local": "The founder supplied the assumptions and any linked excerpts. Public discussions are research leads.",
+    }.get(report["mode"], "Research findings reflect the sources retrieved in this run. Customer behavior requires direct evidence.")
+    provenance = f'<p class="muted">{_html(provenance_text)}</p>'
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -240,7 +243,7 @@ def render_html(report: dict, workspace: dict | None = None) -> str:
 <p class="run">{_mode(report)} · {_html(report['status'].title())} research run</p></header>
 <section><h2>Idea brief</h2><dl class="facts">{brief_html}</dl></section>
 {outcome_html}
-<section class="next"><h2>Recommended experiment</h2>{test_html}</section>
+<section class="next"><h2>{experiment_label}</h2>{test_html}</section>
 <section><h2>Assumptions and evidence</h2>
 <p class="muted">Risk is impact × uncertainty. Statuses reflect the recorded research run.</p>
 {_html_evidence(grouped, assumptions)}</section>
