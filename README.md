@@ -24,7 +24,13 @@ Open the local URL printed by Streamlit. From **Workspace home**, choose **Catch
 
 Runs, evidence reviews, and outcomes are stored in SQLite on this device. Earlier midpoint databases open in the new workspace and receive the additional tables automatically.
 
-### Live research
+### Start a new idea without credentials
+
+Select **New idea → Local evidence review**. Enter one to five assumptions and optionally attach your own source excerpts. The workspace ranks your scores and keeps the founder-supplied excerpts as context. You can save a test plan in the intake or add one later from **Experiment**. The initial analysis and test threshold remain inspectable after results are entered.
+
+**Find public discussion leads** sends only the query you enter to Hacker News Search. Results are live links for investigation and remain separate from linked evidence. Search is optional and the workspace can save a new analysis if a query returns nothing or the provider is unavailable. [Hacker News Search API](https://hn.algolia.com/api)
+
+### Live AI research
 
 Live mode uses an OpenAI-compatible endpoint and Tavily search. Copy `.env.example` to `.env`, fill in your own keys locally, and run `source .env` in the shell that starts Streamlit. `OPENAI_MODEL` and `OPENAI_BASE_URL` are optional overrides. In the idea brief, consent to external processing and select **Run live analysis**. The model gets the brief and relevant retrieved evidence. Tavily gets queries derived from the brief. Use public or fictional ideas when recording and keep API keys, private briefs, and local databases outside Git.
 
@@ -47,6 +53,7 @@ python -m pytest -q
 - [Validation and final evaluation plan](VALIDATION.md)
 - [Midpoint rehearsal and recording script](MIDPOINT_WALKTHROUGH.md)
 - [Startup pitch walkthrough](PITCH_WALKTHROUGH.md)
+- [Live demo steps and fallback](LIVE_DEMO_RUNBOOK.md)
 - [Proposal submission](https://github.com/onexi/ps06/pull/33) and [Abel’s proposal feedback](https://github.com/onexi/ps06/blob/main/yikecheng/feedback_abel.md)
 
 Yinuo Zhao’s legal research prototype was a benchmark for inspectable evidence, bounded research, and reporting the limits of verification. Idea Diligence’s workflow and implementation were developed separately with Codex assistance. [Benchmark repository](https://github.com/inorrr/agentic-legal-research)

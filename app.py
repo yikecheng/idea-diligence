@@ -10,10 +10,11 @@ import streamlit as st
 from idea_diligence.decision import (
     EVIDENCE_VERDICTS, OUTCOME_DECISIONS, OUTCOME_STATUSES, effective_assumptions,
 )
-from idea_diligence.engine import list_demo_cases, live_available, load_demo_brief, run_analysis
+from idea_diligence.engine import list_demo_cases, load_demo_brief, run_analysis
+from idea_diligence.intake import experiment_form_fields, idea_intake
 from idea_diligence.report import escape_markdown as plain, render_html, render_markdown
 from idea_diligence.storage import (
-    load_run, load_workspace, recent_runs, save_evidence_review, save_experiment_outcome, save_run,
+    load_run, load_workspace, recent_runs, save_evidence_review, save_experiment_outcome, save_founder_plan, save_run,
 )
 
 st.set_page_config(page_title="Idea Diligence", page_icon="◈", layout="wide")
@@ -25,13 +26,7 @@ STATUS = {"open": "Open", "supported": "Supported", "challenged": "Challenged",
 STANCE = {"supports": "Supports", "challenges": "Challenges", "context": "Context only"}
 REVIEW = {"accept": "Accept link", "question": "Needs review", "exclude": "Exclude from review"}
 DECISION = {"undecided": "Undecided", "continue": "Continue", "revise": "Revise", "stop": "Stop"}
-FIELDS = (
-    ("title", "Idea name", "How should we refer to this idea?", 120),
-    ("customer", "Target customer", "Who has the problem, and in what situation?", 450),
-    ("problem", "Problem", "What are they trying to do? Where do they get stuck?", 900),
-    ("solution", "Proposed solution", "What would your product do for them?", 900),
-    ("known", "What you already know (optional)", "Interviews, behaviors, or competing products you’ve seen.", 1000),
-)
+MODES = {"demo": "Curated demo", "live": "AI research", "local": "Local evidence review"}
 
 
 def pill(label: str, tone: str = "") -> str:
@@ -62,6 +57,10 @@ def finish_run(brief: dict, mode: str, *, demo_slug: str | None = None, consent:
         except (ValueError, RuntimeError) as error:
             st.error(str(error))
             return
+    persist_analysis(report)
+
+
+def persist_analysis(report: dict) -> None:
     try:
         run_id = save_run(report)
     except (sqlite3.Error, OSError):
@@ -120,31 +119,8 @@ def home() -> None:
                 finish_run(load_demo_brief(case["slug"]), "demo", demo_slug=case["slug"])
 
 
-def idea_brief() -> None:
-    st.title("Research an idea")
-    st.markdown("Describe the product and the decision you’re trying to make.")
-    live = live_available()
-    if not live:
-        st.info("Configure a model and search key for custom research. The sample cases are available in Workspace home.")
-    with st.form("idea_brief"):
-        brief = {}
-        for key, label, placeholder, limit in FIELDS:
-            field = st.text_input if key in {"title", "customer"} else st.text_area
-            brief[key] = field(label, placeholder=placeholder, max_chars=limit, disabled=not live)
-        consent = st.checkbox(
-            "This idea is public or fictional. I agree to send the brief and search queries to the configured providers.",
-            disabled=not live,
-        )
-        submitted = st.form_submit_button("Run live analysis", type="primary", disabled=not live)
-    if submitted:
-        if consent:
-            finish_run(brief, "live", consent=True)
-        else:
-            st.error("Confirm that the brief can be sent to the configured providers.")
-
-
 def show_overview(report: dict, assumptions: list[dict], workspace: dict) -> None:
-    experiment = report.get("experiment")
+    experiment = report.get("experiment") or workspace.get("plan")
     outcome = workspace.get("outcome") or {}
     target = next((row for row in assumptions if experiment and row["id"] == experiment["assumption_id"]), None)
     if target:
@@ -193,7 +169,10 @@ def show_overview(report: dict, assumptions: list[dict], workspace: dict) -> Non
 
 
 def source_passage(source: dict) -> None:
-    st.html(f'<blockquote class="id-source-quote">{h(source["passage"])}</blockquote>')
+    if source["kind"] == "discussion_lead":
+        st.caption(source["passage"])
+    else:
+        st.html(f'<blockquote class="id-source-quote">{h(source["passage"])}</blockquote>')
     st.caption(f'{source["id"]} · {source["kind"].replace("_", " ").capitalize()} · {source["retrieved_at"]}')
     if urlsplit(source["url"]).scheme in ("https", "http"):
         st.link_button("Open original source", source["url"])
@@ -213,7 +192,7 @@ def save_and_refresh(operation, *args) -> None:
 
 def show_evidence(report: dict, assumptions: list[dict], workspace: dict, run_id: int | None) -> None:
     st.subheader("Evidence review")
-    st.caption("Review whether the passage supports its assigned relationship. The original analysis stays available in the trace.")
+    st.caption("Review each passage against the assumption it is linked to. You can revisit the original assessment in the trace.")
     if not assumptions:
         st.info("An assumption plan is required before evidence can be reviewed.")
         return
@@ -261,6 +240,7 @@ def show_evidence(report: dict, assumptions: list[dict], workspace: dict, run_id
     leads = [source for source in report["sources"] if source["id"] not in linked_ids]
     if leads:
         with st.expander(f"Unlinked research leads · {len(leads)}"):
+            st.caption("Open these leads to investigate them. They do not change the assumption’s status.")
             for source in leads:
                 st.markdown(f"**{plain(source['title'])}**")
                 source_passage(source)
@@ -268,9 +248,16 @@ def show_evidence(report: dict, assumptions: list[dict], workspace: dict, run_id
 
 def show_experiment(report: dict, workspace: dict, run_id: int | None) -> None:
     st.subheader("What to test next")
-    exp = report.get("experiment")
+    exp = report.get("experiment") or workspace.get("plan")
     if not exp:
-        st.info("This run did not produce a complete experiment. See Run trace for details.")
+        if run_id is not None and report.get("assumptions"):
+            st.caption("Choose a measurable threshold before collecting observations.")
+            with st.form(f"later-plan-{run_id}"):
+                plan = experiment_form_fields(f"later-plan-{run_id}", [row["id"] for row in report["assumptions"]])
+                if st.form_submit_button("Save test plan", type="primary"):
+                    save_and_refresh(save_founder_plan, run_id, plan)
+        else:
+            st.info("Save an analysis with at least one assumption to plan a test.")
         return
     left, right = st.columns([1.07, 1.0], gap="large")
     with left, st.container(border=True):
@@ -310,7 +297,7 @@ def show_trace(report: dict, workspace: dict) -> None:
     usage = report["usage"]
     a, b, c, d = st.columns(4)
     a.metric("Model calls", usage["model_calls"])
-    b.metric("Search calls", usage["search_calls"])
+    b.metric("Search submissions" if report["mode"] == "local" else "Search calls", usage["search_calls"])
     c.metric("Source records", len(report["sources"]))
     d.metric("Duration", f"{usage['elapsed_seconds']:.2f}s")
     if usage.get("model"):
@@ -321,8 +308,10 @@ def show_trace(report: dict, workspace: dict) -> None:
         st.markdown(f"**{plain(event['stage'])}** · {plain(event['detail'])}")
     for warning in report["warnings"]:
         st.warning(warning)
-    if workspace["reviews"] or workspace["outcome"]:
+    if workspace["reviews"] or workspace["outcome"] or workspace.get("plan"):
         st.markdown("**Founder activity**")
+        if plan := workspace.get("plan"):
+            st.caption(f'{plan["assumption_id"]} · Test plan added · {plan["title"]}')
         for review in workspace["reviews"]:
             st.caption(f'{review["assumption_id"]} · {review["source_id"]} · {REVIEW[review["verdict"]]} · {review["updated_at"]}')
         if outcome := workspace["outcome"]:
@@ -330,20 +319,23 @@ def show_trace(report: dict, workspace: dict) -> None:
 
 
 def analysis_page(report: dict, run_id: int | None) -> None:
-    workspace = {"reviews": [], "outcome": None}
+    workspace = {"reviews": [], "outcome": None, "plan": None}
     if run_id is not None:
         try:
             workspace = load_workspace(run_id)
         except (sqlite3.Error, OSError):
             st.warning("Saved evidence reviews and experiment outcomes are unavailable.")
     assumptions = effective_assumptions(report, workspace["reviews"])
-    mode = "Curated demo" if report["mode"] == "demo" else "Live research"
-    counts = " · ".join((count_label(len(assumptions), "assumption"), count_label(len(report["sources"]), "source"),
-                         count_label(len(workspace["reviews"]), "evidence review")))
+    mode = MODES.get(report["mode"], "Research")
+    linked_ids = {link["source_id"] for link in report["links"]}
+    counts = [count_label(len(assumptions), "assumption"), count_label(len(linked_ids), "linked source")]
+    if unlinked := len(report["sources"]) - len(linked_ids):
+        counts.append(count_label(unlinked, "research lead"))
+    counts.append(count_label(len(workspace["reviews"]), "evidence review"))
     st.html(f'<div class="id-case-head"><div class="id-row-meta">{pill(mode)}'
             f'{pill(report["status"].title(), report["status"])}</div>'
             f'<h1>{h(report["brief"]["title"])}</h1>'
-            f'<p>{h(counts)}</p></div>')
+            f'<p>{h(" · ".join(counts))}</p></div>')
     if report["status"] == "partial":
         st.warning("This run stopped early. The available evidence and the reason are saved in Run trace.")
     view = st.segmented_control("Analysis section", ["Overview", "Evidence", "Experiment", "Run trace"],
@@ -365,6 +357,6 @@ screen = st.session_state.get("screen", "home")
 if screen == "analysis" and (report := st.session_state.get("report")):
     analysis_page(report, st.session_state.get("run_id"))
 elif screen == "brief":
-    idea_brief()
+    idea_intake(persist_analysis, lambda brief: finish_run(brief, "live", consent=True))
 else:
     home()

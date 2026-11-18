@@ -1,5 +1,22 @@
 # Validation
 
+## Live-demo rehearsal · November 18, 2026
+
+The browser runs used a separate local database. The search results came from the real Hacker News Search endpoint. All recorded experiment outcomes were simulated for QA.
+
+| Trial | Observed behavior |
+| --- | --- |
+| Product Brief Listening Lab | Created from scratch. The live `AI podcast` query returned five discussion leads. Attached the AnyPod excerpt, reviewed the link, recorded an outcome, and reopened the analysis after refresh. The impossible result 8 of 6 was rejected before the corrected entry saved. |
+| Campus Room Availability Alerts | Created with two hypotheses and a source passage from MIT Libraries. The first `room booking` query timed out and a manual retry recovered. After restarting the app, reopened the saved analysis, added a test plan, saved an outcome, and downloaded a memo containing the late plan, reviewable source, and decision. |
+| Revised search behavior | Repeated three Chrome queries after the fix. `room booking` and `AI podcast` returned five each, while `hfzxuqvpmclw` returned zero. Those runs surfaced results in 0.7–1.7 seconds in this rehearsal. A public-query validation check rejected an email-shaped input. |
+| Sample regression | Reopened both curated cases and confirmed the AnyPod evidence and the separate 8-of-12 test threshold for Return Deadline Assistant. |
+
+After observing the timeout, added a single retry for eligible temporary errors within a nine-second total limit. The retry is covered by tests with simulated failures. The live reruns succeeded, and the number of internal requests in those reruns was not measured in Chrome. Added an experiment form to saved analyses that lack a plan, and separated linked sources from search leads in the case header.
+
+The automated suite covers legacy database compatibility, query validation, retry and empty responses, report exports, and a fresh custom intake run. The credentialed model-plus-search integration was exercised with simulated HTTP responses, including rate limits and incomplete runs. It still needs a real run using configured provider credentials.
+
+Sources for the rehearsal [MIT Libraries reservation guidelines](https://libraries.mit.edu/study/reserve/) · [AnyPod](https://www.anypod.fm/about) · [Hacker News Search API](https://hn.algolia.com/api)
+
 ## Founder workspace checks
 
 - Opened both curated cases in Chrome and checked that each arrived at a different experiment tied to its own evidence and priority assumption.
