@@ -1,0 +1,134 @@
+{
+  "brief": {
+    "title": "Catch Me Up on Anything",
+    "customer": "Time-constrained product managers and startup founders who follow fast-moving technology topics.",
+    "problem": "Catching up on a topic means opening newsletters, product announcements, and discussion threads, often when reading is inconvenient.",
+    "solution": "Enter a topic and get a short, on-demand audio briefing with clickable sources and an emphasis on what changed recently.",
+    "known": "The founder has experienced the problem personally. No customer interviews, tracked repeat usage, or payment data have been collected."
+  },
+  "assumptions": [
+    {
+      "id": "A1",
+      "category": "desirability",
+      "statement": "Product managers and founders will request and use a second briefing when another topic comes up.",
+      "impact": 5,
+      "uncertainty": 5,
+      "reason": "Repeat use would distinguish a recurring job from a one-time demo. The founder’s experience gives us a reason to test it."
+    },
+    {
+      "id": "A2",
+      "category": "defensibility",
+      "statement": "Typing a topic to get researched audio without supplying documents is enough to differentiate the product.",
+      "impact": 5,
+      "uncertainty": 4,
+      "reason": "A reason to switch matters. Existing product descriptions show overlap, while the quality and fit of those alternatives for this audience remain untested."
+    },
+    {
+      "id": "A3",
+      "category": "feasibility",
+      "statement": "Audio generation can start with an existing service that converts a prepared script into a short briefing.",
+      "impact": 4,
+      "uncertainty": 2,
+      "reason": "A documented service would remove the need to build a speech model. End-to-end speed, fidelity, and per-episode cost still need measurements."
+    },
+    {
+      "id": "A4",
+      "category": "desirability",
+      "statement": "Listeners in this segment will use source links to verify unfamiliar claims.",
+      "impact": 3,
+      "uncertainty": 4,
+      "reason": "Links add verification value only when users can find and use them in a real listening session."
+    },
+    {
+      "id": "A5",
+      "category": "viability",
+      "statement": "Repeat listeners will pay enough to cover the cost of researching and producing their briefings.",
+      "impact": 4,
+      "uncertainty": 4,
+      "reason": "Revenue and cost determine whether a personalized service can be sustained. The demo has no price tests or production cost measurements."
+    }
+  ],
+  "sources": [
+    {
+      "id": "S1",
+      "title": "AnyPod · About",
+      "url": "https://www.anypod.fm/about",
+      "passage": "Just type what you want to learn, and we'll create a researched, original podcast on any topic.",
+      "kind": "page_excerpt",
+      "retrieved_at": "2026-11-18"
+    },
+    {
+      "id": "S2",
+      "title": "Google Gemini · Canvas and Audio Overview",
+      "url": "https://blog.google/products-and-platforms/products/gemini/gemini-collaboration-features/",
+      "passage": "Audio Overview transforms your documents, slides and even Deep Research reports into engaging, podcast-style audio discussions.",
+      "kind": "page_excerpt",
+      "retrieved_at": "2026-11-18"
+    },
+    {
+      "id": "S3",
+      "title": "Hints · On-demand podcasts",
+      "url": "https://makehints.com/",
+      "passage": "Tell Hints what to cover and get a custom episode generated for your exact interests and voice style.",
+      "kind": "page_excerpt",
+      "retrieved_at": "2026-11-18"
+    },
+    {
+      "id": "S4",
+      "title": "ElevenLabs · Speech synthesis introduction",
+      "url": "https://elevenlabs.io/docs/overview/capabilities/text-to-speech",
+      "passage": "ElevenLabs Text to Speech (TTS) API turns text into lifelike audio with nuanced intonation, pacing and emotional awareness.",
+      "kind": "page_excerpt",
+      "retrieved_at": "2026-11-18"
+    },
+    {
+      "id": "S5",
+      "title": "YourTalks · Product FAQ",
+      "url": "https://yourtalks.ai/",
+      "passage": "Every podcast includes clickable citations.",
+      "kind": "page_excerpt",
+      "retrieved_at": "2026-11-18"
+    }
+  ],
+  "links": [
+    {
+      "assumption_id": "A2",
+      "source_id": "S1",
+      "stance": "challenges",
+      "reason": "AnyPod describes the same topic-to-researched-audio flow. Its product page establishes the advertised overlap."
+    },
+    {
+      "assumption_id": "A2",
+      "source_id": "S2",
+      "stance": "challenges",
+      "reason": "Gemini offers podcast-style audio for Deep Research reports. Research-to-audio already exists as an alternative."
+    },
+    {
+      "assumption_id": "A2",
+      "source_id": "S3",
+      "stance": "challenges",
+      "reason": "Hints markets topic-driven custom audio. A more focused reason to switch needs testing with this audience."
+    },
+    {
+      "assumption_id": "A3",
+      "source_id": "S4",
+      "stance": "supports",
+      "reason": "An existing API supplies the script-to-audio step. Timing, sound quality, and price for this workflow remain to be measured."
+    },
+    {
+      "assumption_id": "A4",
+      "source_id": "S5",
+      "stance": "context",
+      "reason": "Clickable citations are already an advertised feature. The page supplies a design precedent and gives no data on listener verification behavior."
+    }
+  ],
+  "experiment": {
+    "assumption_id": "A1",
+    "title": "Run a one-week concierge pilot for repeat listening",
+    "procedure": "Recruit eight PMs or founders who research emerging technology topics at least twice a week. Give each the same request link and make their first requested briefing by hand. Leave the link available for seven days without reminders. Record follow-up requests and whether those listeners play at least half of the second briefing, with their consent.",
+    "metric": "Number of participants who independently request and listen to at least half of a second briefing within seven days of their first.",
+    "threshold": "Continue testing this audience if at least 4 of 8 participants qualify. Below 4, interview the non-returners before investing in automation.",
+    "time": "7 days of observation after onboarding",
+    "cost": "$0 in paid software for a manual pilot, excluding staff time and any participant incentives"
+  }
+}
