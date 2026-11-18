@@ -21,7 +21,18 @@ from .providers import (
     search_web,
 )
 
-DEMO_PATH = Path(__file__).resolve().parents[1] / "fixtures" / "catch_me_up.json"
+FIXTURE_DIR = Path(__file__).resolve().parents[1] / "fixtures"
+DEFAULT_DEMO_SLUG = "catch-me-up"
+DEMO_CASES = {
+    DEFAULT_DEMO_SLUG: (
+        "catch_me_up.json", "Catch Me Up on Anything",
+        "Can an on-demand audio briefing earn repeat use when alternatives already make researched podcasts?",
+    ),
+    "return-window": (
+        "return_window.json", "Return Deadline Assistant",
+        "Do shoppers value source-linked return guidance when seller, delivery and membership change the deadline?",
+    ),
+}
 MAX_ASSUMPTIONS = 5
 MAX_SEARCH_CALLS = 5
 MAX_SOURCES = 10
@@ -94,13 +105,25 @@ def live_available() -> bool:
     return ProviderConfig.from_env().ready
 
 
-def _load_fixture() -> dict[str, Any]:
-    with DEMO_PATH.open(encoding="utf-8") as fixture:
+def list_demo_cases() -> list[dict[str, str]]:
+    """Return the permitted demo cases in display order."""
+    return [
+        {"slug": slug, "title": title, "description": description}
+        for slug, (_, title, description) in DEMO_CASES.items()
+    ]
+
+
+def _load_fixture(slug: str = DEFAULT_DEMO_SLUG) -> dict[str, Any]:
+    selection = DEMO_CASES.get(slug)
+    if selection is None:
+        raise ValueError("Choose a demo case from the workspace catalog.")
+    filename, _, _ = selection
+    with (FIXTURE_DIR / filename).open(encoding="utf-8") as fixture:
         return json.load(fixture)
 
 
-def load_demo_brief() -> dict[str, str]:
-    return _clean_brief(_load_fixture()["brief"])
+def load_demo_brief(slug: str = DEFAULT_DEMO_SLUG) -> dict[str, str]:
+    return _clean_brief(_load_fixture(slug)["brief"])
 
 
 def _text(value: Any, limit: int) -> str:
@@ -312,10 +335,10 @@ def _partial(result: dict[str, Any], warning: str) -> None:
     result["warnings"].append(warning)
 
 
-def _run_demo(result: dict[str, Any]) -> None:
-    fixture = _load_fixture()
+def _run_demo(result: dict[str, Any], slug: str) -> None:
+    fixture = _load_fixture(slug)
     if result["brief"] != _clean_brief(fixture["brief"]):
-        raise ValueError("Demo mode replays the supplied Catch Me Up on Anything example. Load the example or use Live mode for a custom brief.")
+        raise ValueError("Reload the selected example to replay its evidence, or use Live mode for a custom brief.")
     assumptions = _rank_assumptions(fixture["assumptions"])
     sources = _fixture_sources(fixture["sources"])
     links, rejected = _validated_links(fixture["links"], assumptions, sources)
@@ -324,7 +347,7 @@ def _run_demo(result: dict[str, Any]) -> None:
     experiment = _validated_experiment(fixture["experiment"], target)
     if rejected or not experiment:
         raise ValueError("The checked-in demo failed its source-link or experiment checks.")
-    result.update(assumptions=assumptions, sources=sources, links=links, experiment=experiment)
+    result.update(demo_slug=slug, assumptions=assumptions, sources=sources, links=links, experiment=experiment)
     _trace(result, "Demo mode", "Loaded the checked-in brief, draft assumptions, and excerpts. No external calls.")
     _trace(result, "Prioritize", "Ranked five assumptions by impact × uncertainty.")
     _trace(result, "Check evidence", f"Accepted {len(links)} links across {len(sources)} source records. Unlinked assumptions stay open.")
@@ -431,12 +454,15 @@ def _run_live(config: ProviderConfig, result: dict[str, Any], deadline: float) -
         _partial(result, f"The model did not return a complete decision-ready experiment for {target}, the selected assumption.")
 
 
-def run_analysis(brief: dict[str, Any], mode: str = "demo", *, allow_external: bool = False) -> dict[str, Any]:
+def run_analysis(
+    brief: dict[str, Any], mode: str = "demo", *, allow_external: bool = False,
+    demo_slug: str = DEFAULT_DEMO_SLUG,
+) -> dict[str, Any]:
     """Run the documented demo or a new, explicitly opted-in live analysis."""
     start = monotonic()
     result = _result(_clean_brief(brief), mode)
     if mode == "demo":
-        _run_demo(result)
+        _run_demo(result, demo_slug)
     elif mode == "live":
         if not allow_external:
             raise ValueError("Confirm that the idea brief is safe to send to external providers before using Live mode.")
