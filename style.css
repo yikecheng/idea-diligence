@@ -1,0 +1,9 @@
+<style>
+[data-testid="stMainBlockContainer"] { max-width: 86rem; padding-top: 2.2rem; }
+[data-testid="stSidebarContent"] { border-right: 1px solid #dce8e3; }
+[data-testid="stHeadingWithActionElements"] h1 { font-size: 2.75rem; letter-spacing: -.055em; color: #153a35; }
+[data-testid="stHeadingWithActionElements"] h3 { color: #153a35; letter-spacing: -.025em; }
+[data-testid="stExpander"] summary { background: #edf3f0; }
+[data-testid="stVerticalBlockBorderWrapper"]:has([data-testid="stVerticalBlock"]) { border-radius: .65rem; }
+blockquote { border-left-color: #75a196 !important; }
+</style>
