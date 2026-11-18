@@ -1,8 +1,8 @@
 # Idea Diligence
 
-Idea Diligence helps early-stage founders and product teams decide what to test before building. Describe an idea, see five assumptions that could change the decision, inspect evidence tied to each one, and leave with an experiment for the most important open question.
+Idea Diligence helps early-stage founders and product teams decide what to test before building. Describe an idea, inspect and review the evidence behind its assumptions, then record the experiment outcome and the decision it informs.
 
-MIT 1.125 Agentic Engineering · Fall 2026 · EK (Yike) Cheng · Midpoint prototype
+MIT 1.125 Agentic Engineering · Fall 2026 · EK (Yike) Cheng · Founder workspace
 
 ## Try it
 
@@ -15,7 +15,14 @@ python -m pip install -r requirements.txt
 streamlit run app.py
 ```
 
-Open the local URL printed by Streamlit. Click **Run demo** in the sidebar to load and analyze **Catch Me Up on Anything**, a proposed on-demand audio briefing for busy professionals. Expand a result to see its source passage and compare the finding with the demand assumption that stays open. The demo uses a fixed bundle of reviewed public evidence and runs without API credentials. The app records analyses locally in SQLite and can export a Markdown report.
+Open the local URL printed by Streamlit. From **Workspace home**, choose **Catch Me Up on Anything** or **Return Deadline Assistant**. These examples replay curated public excerpts with zero provider requests.
+
+1. **Overview** ranks the assumptions and summarizes the most consequential unresolved question.
+2. **Evidence** shows exact source excerpts and lets you accept, question, or exclude each link. Your judgments are preserved alongside the original AI classification.
+3. **Experiment** gives you a procedure, measure, and decision threshold. Record real observations and choose whether to continue, revise, or stop.
+4. **Run trace** shows research calls, source coverage, warnings, and recorded founder activity. The HTML memo and Markdown exports live in **Overview**. Open the HTML memo in a browser to print or save it as PDF.
+
+Runs, evidence reviews, and outcomes are stored in SQLite on this device. Earlier midpoint databases open in the new workspace and receive the additional tables automatically.
 
 ### Live research
 
@@ -39,6 +46,7 @@ python -m pytest -q
 - [Architecture and engineering decisions](ARCHITECTURE.md)
 - [Validation and final evaluation plan](VALIDATION.md)
 - [Midpoint rehearsal and recording script](MIDPOINT_WALKTHROUGH.md)
+- [Startup pitch walkthrough](PITCH_WALKTHROUGH.md)
 - [Proposal submission](https://github.com/onexi/ps06/pull/33) and [Abel’s proposal feedback](https://github.com/onexi/ps06/blob/main/yikecheng/feedback_abel.md)
 
 Yinuo Zhao’s legal research prototype was a benchmark for inspectable evidence, bounded research, and reporting the limits of verification. Idea Diligence’s workflow and implementation were developed separately with Codex assistance. [Benchmark repository](https://github.com/inorrr/agentic-legal-research)

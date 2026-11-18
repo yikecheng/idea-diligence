@@ -1,5 +1,11 @@
 # Validation
 
+## Founder workspace checks
+
+- Opened both curated cases in Chrome and checked that each arrived at a different experiment tied to its own evidence and priority assumption.
+- Saved an evidence review and a simulated outcome in a separate QA database. Reopened the analysis after refreshing and confirmed both records appeared in the trace. The simulation was a software check and supplies no customer results.
+- Downloaded an HTML decision memo in Chrome. Automated checks cover persistence, review status, report content and link safety, and partial-run handling.
+
 ## Midpoint checks
 
 Run the automated tests with `python -m pytest -q` and record the demonstrated commit and browser workflow before recording. The midpoint covers a reproducible implementation check and one focused product demonstration. Confirm each check before narrating it as a result.

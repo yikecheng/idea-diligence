@@ -1,9 +1,97 @@
 <style>
-[data-testid="stMainBlockContainer"] { max-width: 86rem; padding-top: 2.2rem; }
-[data-testid="stSidebarContent"] { border-right: 1px solid #dce8e3; }
-[data-testid="stHeadingWithActionElements"] h1 { font-size: 2.75rem; letter-spacing: -.055em; color: #153a35; }
-[data-testid="stHeadingWithActionElements"] h3 { color: #153a35; letter-spacing: -.025em; }
-[data-testid="stExpander"] summary { background: #edf3f0; }
-[data-testid="stVerticalBlockBorderWrapper"]:has([data-testid="stVerticalBlock"]) { border-radius: .65rem; }
-blockquote { border-left-color: #75a196 !important; }
+:root {
+  --id-ink: #162633;
+  --id-muted: #526373;
+  --id-rule: #dce4e9;
+  --id-surface: #fff;
+  --id-accent: #215e53;
+  --id-display: Georgia, "Times New Roman", serif;
+}
+
+[data-testid="stMainBlockContainer"] { max-width: 88rem; padding: 2.5rem 2.6rem 4rem; }
+[data-testid="stMain"] { background: #f4f7f9; }
+[data-testid="stSidebarContent"] { border-right: 1px solid var(--id-rule); }
+[data-testid="stSidebar"] [data-testid="stSidebarUserContent"] { padding-top: 2.25rem; }
+[data-testid="stToolbar"] { display: none; }
+
+.id-brand { display: flex; align-items: center; gap: .8rem; margin: 0 0 .95rem; color: var(--id-ink); }
+.id-brand strong { display: block; font-family: var(--id-display); font-size: 1.24rem; line-height: 1.25; }
+.id-brand small { display: block; color: var(--id-muted); font-size: .81rem; margin-top: .18rem; }
+.id-logo { display: grid; place-items: center; flex: 0 0 2.4rem; height: 2.4rem; border-radius: .53rem;
+           color: #fff; background: #215e53; font-size: 1.18rem; }
+
+.id-hero {
+  position: relative; overflow: hidden; isolation: isolate; display: flex; align-items: center;
+  min-height: 20.1rem; padding: clamp(2rem, 5vw, 4.5rem); margin: 0 0 1.2rem; border-radius: .9rem;
+  background: linear-gradient(115deg, #132631 0%, #173640 55%, #214c47 100%); color: #f9fbfc;
+}
+.id-hero-content { position: relative; z-index: 2; width: min(100%, 38rem); }
+.id-hero h1, .id-case-head h1 {
+  font: 400 clamp(2.35rem, 4.35vw, 4.25rem)/1.06 var(--id-display);
+  letter-spacing: -.048em; margin: 0; padding: 0;
+}
+.id-hero h1 { color: #fff; }
+.id-hero p { margin: 1rem 0 0; font-size: 1.05rem; line-height: 1.62; color: #e1ecec; max-width: 29rem; }
+.id-glyph { position: absolute; right: 2%; top: 50%; translate: 0 -50%; width: 31%; aspect-ratio: 1;
+            opacity: .8; pointer-events: none; z-index: 1; }
+.id-glyph i { position: absolute; width: 80%; aspect-ratio: 1; top: 10%; left: 10%;
+              border: 1px solid #84a99f70; transform: rotate(45deg); border-radius: 8%; }
+.id-glyph i:nth-child(2) { scale: .71; border-color: #9bc5b49b; }
+.id-glyph i:nth-child(3) { scale: .4; border-color: #bdd4b9ba; }
+.id-glyph b { position: absolute; width: 10%; aspect-ratio: 1; top: 45%; left: 45%;
+              background: #bfcc9e; transform: rotate(45deg); border-radius: 17%; }
+
+[data-testid="stHeadingWithActionElements"] h1, [data-testid="stHeadingWithActionElements"] h2,
+[data-testid="stHeadingWithActionElements"] h3 { font-family: var(--id-display); color: var(--id-ink); letter-spacing: -.03em; }
+[data-testid="stHeadingWithActionElements"] h2 { font-size: 1.85rem; }
+[data-testid="stHeadingWithActionElements"] h3 { font-size: 1.46rem; }
+
+.id-case-head { padding: .1rem .05rem .35rem; }
+.id-case-head h1 { margin: .65rem 0 .55rem; color: var(--id-ink); font-size: clamp(2.4rem, 4.2vw, 3.45rem); }
+.id-case-head p { margin: 0; color: var(--id-muted); font-size: .9rem; }
+
+.id-brief { margin: .15rem 0 .75rem; display: grid; grid-template-columns: minmax(0,1fr) 12rem;
+  gap: 1.5rem; background: #17343d; color: #f2fbfa; padding: 1.5rem 1.65rem; border-radius: .7rem; }
+.id-brief small { color: #b6d5cc; letter-spacing: .115em; font-size: .7rem; font-weight: 700; }
+.id-brief h2 { color: #fff; margin: .42rem 0 .6rem; padding: 0; font: 400 1.72rem/1.25 var(--id-display); }
+.id-brief p { color: #d5e7e1; margin: 0; }
+.id-brief-side { display: flex; flex-direction: column; justify-content: center; gap: .4rem;
+                 border-left: 1px solid #628079; padding-left: 1.4rem; }
+.id-brief-side strong { font-size: 1.27rem; }
+.id-brief-side span { color: #d5e7e1; font-size: .88rem; }
+
+.id-row-meta, .id-card-meta { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
+.id-row-meta { font-size: .83rem; color: var(--id-muted); font-weight: 600; }
+.id-pill {
+  display: inline-block; padding: .18rem .55rem; border-radius: .25rem; color: #394b5c; background: #eaf0f4;
+  line-height: 1.35; font: 600 .78rem/1.35 system-ui,sans-serif; white-space: normal;
+}
+.id-pill.open, .id-pill.mixed, .id-pill.partial { color: #735005; background: #fff0ca; }
+.id-pill.challenges, .id-pill.challenged { color: #8b352d; background: #fbece8; }
+.id-pill.supports, .id-pill.supported, .id-pill.complete { color: #1b584b; background: #e4f2eb; }
+
+.id-assumption { background: var(--id-surface); border: 1px solid var(--id-rule); display: flex;
+                 gap: 1rem; align-items: flex-start; padding: 1rem 1.1rem; border-radius: .63rem; }
+.id-risk { min-width: 2.85rem; padding-top: .1rem; color: var(--id-ink); text-align: center; }
+.id-risk strong { display: block; font-size: 1.6rem; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.id-risk span, .id-assumption-body small { color: var(--id-muted); font-size: .8rem; }
+.id-assumption-body p { margin: .38rem 0 .22rem; color: var(--id-ink); font-size: 1rem; line-height: 1.48; }
+.id-source-quote { margin: .26rem 0; padding: .87rem 1rem; border-left: .19rem solid #628e81;
+   background: #f0f5f3; border-radius: 0 .34rem .34rem 0; color: #213944; font: 1.06rem/1.58 var(--id-display);
+   white-space: pre-line; overflow-wrap: anywhere; }
+[data-testid="stVerticalBlockBorderWrapper"] { background: #fff; border-color: var(--id-rule); }
+[data-testid="stExpander"] details { background: #fff; }
+
+@media (max-width: 1000px) {
+  [data-testid="stMainBlockContainer"] { padding-inline: 1.65rem; }
+  .id-glyph { right: -5%; width: 36%; opacity: .58; }
+}
+@media (max-width: 680px) {
+  [data-testid="stMainBlockContainer"] { padding: 1.6rem 1rem 3rem; }
+  .id-hero { padding: 1.7rem; min-height: 17.5rem; }
+  .id-hero h1 { font-size: clamp(2.45rem, 9vw, 3.45rem); }
+  .id-glyph { right: -13%; width: 62%; opacity: .28; }
+  .id-brief { grid-template-columns: 1fr; gap: .75rem; padding: 1.2rem; }
+  .id-brief-side { border-left: 0; border-top: 1px solid #628079; padding: .65rem 0 0; }
+}
 </style>

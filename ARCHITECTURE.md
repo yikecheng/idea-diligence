@@ -8,8 +8,9 @@ flowchart LR
     D --> E[Highest-priority open assumption]
     E --> F[Experiment with a decision threshold]
     F --> G[Streamlit workspace]
-    G --> H[(Local SQLite history)]
-    G --> I[Markdown export]
+    G --> J[Founder review and observed outcome]
+    J --> H[(Local SQLite history)]
+    H --> I[HTML memo and Markdown export]
 ```
 
 ## Application boundaries
@@ -19,7 +20,7 @@ flowchart LR
 | `app.py` | Collect the idea brief and research consent. Render assumptions, evidence passages, the next experiment, and the recorded research trace in Streamlit. |
 | `idea_diligence/engine.py` | Generate or load five assumptions, rank them, retrieve and link evidence, and produce an experiment for one unresolved assumption. Keep structured results available to the same UI in both modes. |
 | `idea_diligence/providers.py` | Call a configurable OpenAI-compatible model to propose assumptions and reason over evidence. Use Tavily for live search. |
-| `idea_diligence/storage.py` and `report.py` | Store completed and partial SQLite run snapshots under `.local/runs.sqlite3` and generate a readable Markdown report from the same analysis. |
+| `idea_diligence/storage.py`, `decision.py` and `report.py` | Store analysis snapshots, latest founder evidence reviews, and the recorded experiment outcome in SQLite. Derive reviewed direction from accepted links and export printable HTML or Markdown. |
 
 The brief captures the audience, problem, proposed product, and what the founder already knows. The first live model call proposes assumptions and derives focused queries. The second maps retrieved passages to assumptions and proposes an experiment. Demo mode starts from the fixed audio-briefing brief and exercises the ranking and evidence checks over `fixtures/catch_me_up.json`. The mode and activity trace give a reviewer the context needed to interpret the result.
 

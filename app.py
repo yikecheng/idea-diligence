@@ -1,191 +1,370 @@
-"""Run with: python -m streamlit run app.py"""
+"""Idea Diligence workspace. Start with python -m streamlit run app.py."""
 
+import html
 import sqlite3
 from pathlib import Path
 from urllib.parse import urlsplit
 
 import streamlit as st
 
-from idea_diligence.engine import live_available, load_demo_brief, run_analysis
-from idea_diligence.report import escape_markdown as plain, render_markdown
-from idea_diligence.storage import load_run, recent_runs, save_run
+from idea_diligence.decision import (
+    EVIDENCE_VERDICTS, OUTCOME_DECISIONS, OUTCOME_STATUSES, effective_assumptions,
+)
+from idea_diligence.engine import list_demo_cases, live_available, load_demo_brief, run_analysis
+from idea_diligence.report import escape_markdown as plain, render_html, render_markdown
+from idea_diligence.storage import (
+    load_run, load_workspace, recent_runs, save_evidence_review, save_experiment_outcome, save_run,
+)
 
-st.set_page_config(page_title="Idea Diligence", page_icon="🔎", layout="wide")
-st.html((Path(__file__).parent / "style.css").read_text(encoding="utf-8"))
+st.set_page_config(page_title="Idea Diligence", page_icon="◈", layout="wide")
+st.html(Path(__file__).with_name("style.css").read_text(encoding="utf-8"))
 
+h = html.escape
+STATUS = {"open": "Open", "supported": "Supported", "challenged": "Challenged",
+          "context": "Context only", "mixed": "Mixed"}
+STANCE = {"supports": "Supports", "challenges": "Challenges", "context": "Context only"}
+REVIEW = {"accept": "Accept link", "question": "Needs review", "exclude": "Exclude from review"}
+DECISION = {"undecided": "Undecided", "continue": "Continue", "revise": "Revise", "stop": "Stop"}
 FIELDS = (
-    ("title", "Idea name", "A short working name"),
-    ("customer", "Target customer", "Who specifically has this problem?"),
-    ("problem", "Problem", "What are they trying to do, and what gets in the way?"),
-    ("solution", "Proposed solution", "What would your product do for them?"),
-    ("known", "What you already know (optional)", "Add observations or uncertainties worth preserving."),
+    ("title", "Idea name", "How should we refer to this idea?", 120),
+    ("customer", "Target customer", "Who has the problem, and in what situation?", 450),
+    ("problem", "Problem", "What are they trying to do? Where do they get stuck?", 900),
+    ("solution", "Proposed solution", "What would your product do for them?", 900),
+    ("known", "What you already know (optional)", "Interviews, behaviors, or competing products you’ve seen.", 1000),
 )
 
 
-def set_brief(brief: dict) -> None:
-    for name, _, _ in FIELDS:
-        st.session_state[f"brief_{name}"] = brief.get(name, "")
+def pill(label: str, tone: str = "") -> str:
+    return f'<span class="id-pill {h(tone)}">{h(label)}</span>'
 
 
-def start_run(brief: dict, mode: str, consent: bool = False) -> None:
-    progress = "Replaying the curated evidence set…" if mode == "demo" else "Researching your assumptions…"
-    with st.spinner(progress):
+def count_label(count: int, noun: str) -> str:
+    return f"{count} {noun}{'' if count == 1 else 's'}"
+
+
+def change_page(page: str) -> None:
+    st.session_state.screen = page
+
+
+def open_analysis(report: dict, run_id: int | None) -> None:
+    st.session_state.report = report
+    st.session_state.run_id = run_id
+    change_page("analysis")
+
+
+def finish_run(brief: dict, mode: str, *, demo_slug: str | None = None, consent: bool = False) -> None:
+    with st.spinner("Preparing your evidence and decision brief…"):
         try:
-            report = run_analysis(brief, mode=mode, allow_external=consent)
+            if demo_slug:
+                report = run_analysis(brief, mode, demo_slug=demo_slug)
+            else:
+                report = run_analysis(brief, mode, allow_external=consent)
         except (ValueError, RuntimeError) as error:
             st.error(str(error))
             return
-    st.session_state.report = report
-    st.session_state.report_id = None
     try:
-        st.session_state.report_id = save_run(report)
-    except (OSError, sqlite3.Error):
-        st.warning("The analysis finished, but the local history could not be saved. You can still download the report.")
+        run_id = save_run(report)
+    except (sqlite3.Error, OSError):
+        run_id = None
+        st.session_state.flash = "The run is open, but local storage was unavailable. Exports still work."
+    open_analysis(report, run_id)
+    st.rerun()
 
 
-def show_experiment(report: dict) -> None:
+def sidebar() -> None:
+    with st.sidebar:
+        st.html("""
+          <div class="id-brand"><span class="id-logo" aria-hidden="true">◈</span>
+            <div><strong>Idea Diligence</strong><small>Founder workspace</small></div>
+          </div>""")
+        st.button("Workspace home", width="stretch", on_click=change_page, args=("home",))
+        st.button("New idea", width="stretch", on_click=change_page, args=("brief",))
+        st.divider()
+        st.markdown("**Saved analyses**")
+        try:
+            history = recent_runs()
+            if history:
+                options = {row[0]: row[2] for row in history}
+                selected = st.selectbox("Saved analysis", list(options), format_func=options.get,
+                                        label_visibility="collapsed", index=None, placeholder="Choose an analysis")
+                if selected is not None and st.button("Open saved analysis", width="stretch"):
+                    if report := load_run(selected):
+                        open_analysis(report, selected)
+            else:
+                st.caption("Completed and partial runs appear here.")
+        except (sqlite3.Error, OSError):
+            st.warning("Saved analyses are unavailable.")
+        st.divider()
+        st.caption("Runs and reviews are saved on this device.")
+
+
+def home() -> None:
+    st.html("""
+      <div class="id-hero">
+        <div class="id-hero-content">
+          <h1>Know what to test<br>before you build.</h1>
+          <p>Turn a startup idea into the assumptions that matter, the evidence behind them,
+          and a test that can change your decision.</p>
+        </div>
+        <div class="id-glyph" aria-hidden="true"><i></i><i></i><i></i><b></b></div>
+      </div>""")
+    st.markdown("## Explore a case")
+    st.caption("Use a curated brief and public source excerpts. Each sample runs locally without credentials.")
+    demos = list_demo_cases()
+    for index, (column, case) in enumerate(zip(st.columns(len(demos), gap="medium"), demos)):
+        with column, st.container(border=True):
+            st.markdown(f"### {plain(case['title'])}")
+            st.markdown(plain(case["description"]))
+            if st.button(f"Open {case['title']} demo", key=case["slug"], width="stretch",
+                         type="primary" if index == 0 else "secondary"):
+                finish_run(load_demo_brief(case["slug"]), "demo", demo_slug=case["slug"])
+
+
+def idea_brief() -> None:
+    st.title("Research an idea")
+    st.markdown("Describe the product and the decision you’re trying to make.")
+    live = live_available()
+    if not live:
+        st.info("Configure a model and search key for custom research. The sample cases are available in Workspace home.")
+    with st.form("idea_brief"):
+        brief = {}
+        for key, label, placeholder, limit in FIELDS:
+            field = st.text_input if key in {"title", "customer"} else st.text_area
+            brief[key] = field(label, placeholder=placeholder, max_chars=limit, disabled=not live)
+        consent = st.checkbox(
+            "This idea is public or fictional. I agree to send the brief and search queries to the configured providers.",
+            disabled=not live,
+        )
+        submitted = st.form_submit_button("Run live analysis", type="primary", disabled=not live)
+    if submitted:
+        if consent:
+            finish_run(brief, "live", consent=True)
+        else:
+            st.error("Confirm that the brief can be sent to the configured providers.")
+
+
+def show_overview(report: dict, assumptions: list[dict], workspace: dict) -> None:
     experiment = report.get("experiment")
-    st.subheader("What to test next")
-    if not experiment:
-        st.info("This run did not produce an experiment. Review the trace to see which step stopped.")
-        return
-    premise = next((a for a in report["assumptions"] if a["id"] == experiment["assumption_id"]), None)
-    with st.container(border=True):
-        st.markdown(f"**{plain(experiment['title'])}**")
-        if premise:
-            st.caption(f"Tests {premise['id']} · {premise['category'].title()}")
-        st.markdown(plain(experiment["procedure"]))
-        st.markdown("**Measure**")
-        st.markdown(plain(experiment["metric"]))
-        st.markdown("**Decision threshold**")
-        st.markdown(plain(experiment["threshold"]))
-        st.caption(f"Time · {experiment['time']}  |  Estimated cost · {experiment['cost']}")
+    outcome = workspace.get("outcome") or {}
+    target = next((row for row in assumptions if experiment and row["id"] == experiment["assumption_id"]), None)
+    if target:
+        decision = DECISION[outcome.get("decision", "undecided")]
+        st.html(f"""
+          <div class="id-brief"><div>
+            <small>PRIORITY ASSUMPTION</small>
+            <h2>{h(target['statement'])}</h2>
+            <p>{h(experiment['title'])}</p>
+            </div><div class="id-brief-side">
+            <small>FOUNDER DECISION</small><strong>{h(decision)}</strong>
+            <span>{h(outcome.get("status", "planned").title())} experiment</span>
+          </div></div>""")
+    left, right = st.columns([1.65, 1], gap="large")
+    with left:
+        st.subheader("Assumption map")
+        st.caption("Impact × uncertainty sets the initial priority. Review links in Evidence.")
+        for row in assumptions:
+            status = row["status"]
+            reviewed = row["reviewed_status"]
+            subtitle = "Review pending" if reviewed is None else f"After review · {STATUS[reviewed]}"
+            st.html(f"""
+              <div class="id-assumption"><div class="id-risk"><strong>{row["risk"]}</strong><span>/ 25</span></div>
+                <div class="id-assumption-body"><div class="id-row-meta">
+                  <span>{h(row["category"].title())}</span>{pill(STATUS[status], status)}
+                </div><p>{h(row["statement"])}</p><small>{h(subtitle)}</small></div>
+              </div>""")
+        if not assumptions:
+            st.info("This run stopped before producing an assumption map. See Run trace for details.")
+    with right:
+        st.subheader("Decision brief")
+        with st.container(border=True):
+            st.markdown("**Target customer**")
+            st.markdown(plain(report["brief"]["customer"]))
+            st.markdown("**Problem**")
+            st.markdown(plain(report["brief"]["problem"]))
+            st.markdown("**Proposed solution**")
+            st.markdown(plain(report["brief"]["solution"]))
+            if report["brief"].get("known"):
+                st.markdown("**What we know**")
+                st.markdown(plain(report["brief"]["known"]))
+        st.download_button("Download decision memo", render_html(report, workspace),
+                           "idea-diligence-memo.html", "text/html", on_click="ignore", width="stretch")
+        st.download_button("Download Markdown", render_markdown(report, workspace),
+                           "idea-diligence-report.md", "text/markdown", on_click="ignore", width="stretch")
 
 
-def show_evidence(source: dict, link: dict) -> None:
-    icon = {"supports": "🟢", "challenges": "🔴", "context": "⚪"}[link["stance"]]
-    st.markdown(f"{icon} **{link['stance'].title()}** · {plain(source['title'])}")
-    st.markdown(plain(link["reason"]))
-    show_source_passage(source)
-
-
-def show_source_passage(source: dict) -> None:
-    st.markdown("> " + plain(source["passage"]).replace("\n", "\n> "))
-    st.caption(f"{source['id']} · {source['kind'].replace('_', ' ').title()} · {source['retrieved_at']}")
-    if urlsplit(source["url"]).scheme in {"https", "http"}:
+def source_passage(source: dict) -> None:
+    st.html(f'<blockquote class="id-source-quote">{h(source["passage"])}</blockquote>')
+    st.caption(f'{source["id"]} · {source["kind"].replace("_", " ").capitalize()} · {source["retrieved_at"]}')
+    if urlsplit(source["url"]).scheme in ("https", "http"):
         st.link_button("Open original source", source["url"])
 
 
-def show_assumptions(report: dict) -> None:
-    st.subheader("Assumption map")
-    st.caption("Ranked by impact × uncertainty. Expand an assumption to inspect its evidence.")
-    sources = {item["id"]: item for item in report["sources"]}
-    for index, premise in enumerate(report["assumptions"]):
-        label = f"{premise['category'].title()} · {premise['status'].title()} · Risk {premise['risk']}/25"
-        with st.expander(label, expanded=index == 0):
-            st.markdown(f"**{plain(premise['statement'])}**")
-            st.caption(f"{premise['id']} · Impact {premise['impact']}/5 · Uncertainty {premise['uncertainty']}/5")
-            st.markdown(plain(premise["reason"]))
-            linked = [link for link in report["links"] if link["assumption_id"] == premise["id"]]
-            if not linked:
-                st.caption("No evidence linked to this assumption in this run.")
-            for link in linked:
-                source = sources.get(link["source_id"])
-                if source:
-                    with st.container(border=True):
-                        show_evidence(source, link)
+def save_and_refresh(operation, *args) -> None:
+    try:
+        operation(*args)
+    except ValueError as error:
+        st.error(str(error))
+    except (sqlite3.Error, OSError):
+        st.error("Local storage is unavailable. Try saving again.")
+    else:
+        st.session_state.flash = "Saved to this analysis."
+        st.rerun()
 
 
-def show_result(report: dict) -> None:
-    st.markdown("#### " + plain(report["brief"]["title"]))
-    mode = "Curated evidence replay" if report["mode"] == "demo" else "Live model and search"
-    st.caption(f"{mode} · {report['status'].title()} run · Public sources can inform assumptions. Demand requires a customer test.")
-    if report["status"] == "partial":
-        st.warning("Partial run. Available results are saved. See the trace for details.")
-    left, right = st.columns([1.17, 1], gap="large")
+def show_evidence(report: dict, assumptions: list[dict], workspace: dict, run_id: int | None) -> None:
+    st.subheader("Evidence review")
+    st.caption("Review whether the passage supports its assigned relationship. The original analysis stays available in the trace.")
+    if not assumptions:
+        st.info("An assumption plan is required before evidence can be reviewed.")
+        return
+    left, right = st.columns([0.92, 1.73], gap="large")
+    lookup = {row["id"]: row for row in assumptions}
+    source_by_id = {source["id"]: source for source in report["sources"]}
+    candidates = sorted(assumptions, key=lambda row: (not any(
+        link["assumption_id"] == row["id"] and link["stance"] == "challenges" for link in report["links"]
+    ), -row["risk"]))
     with left:
-        show_assumptions(report)
+        selected = st.radio("Choose an assumption", [row["id"] for row in candidates],
+                            format_func=lambda aid: f'{aid} · {lookup[aid]["category"].title()} · {STATUS[lookup[aid]["status"]]}',
+                            key=f"evidence-choice-{run_id}")
+        row = lookup[selected]
+        st.markdown(f"**{plain(row['statement'])}**")
+        st.caption(f"Impact {row['impact']}/5 · Uncertainty {row['uncertainty']}/5")
+        st.markdown(plain(row["reason"]))
     with right:
-        show_experiment(report)
-        st.download_button("Download Markdown report", render_markdown(report),
-                           file_name="idea-diligence-report.md", mime="text/markdown", on_click="ignore")
+        links = [item for item in report["links"] if item["assumption_id"] == selected]
+        if not links:
+            st.info("No passage is linked to this assumption. It remains an open research question.")
+        for link in links:
+            source = source_by_id[link["source_id"]]
+            source_id = source["id"]
+            key = f"{run_id}-{selected}-{source_id}"
+            review = next((item for item in workspace["reviews"]
+                           if item["assumption_id"] == selected and item["source_id"] == source_id), None)
+            with st.container(border=True):
+                st.html(f'<div class="id-card-meta">{pill(STANCE[link["stance"]], link["stance"])}'
+                        f'{pill(REVIEW[review["verdict"]] if review else "Awaiting review")}</div>')
+                st.markdown(f"#### {plain(source['title'])}")
+                st.markdown(plain(link["reason"]))
+                source_passage(source)
+                if run_id is not None:
+                    with st.expander("Review this link"):
+                        with st.form(f"review-{key}"):
+                            verdict = st.selectbox("Your judgment", EVIDENCE_VERDICTS,
+                                                   index=EVIDENCE_VERDICTS.index(review["verdict"]) if review else None,
+                                                   format_func=REVIEW.get, placeholder="Choose a judgment")
+                            note = st.text_area("Review note (optional)", value=review["note"] if review else "",
+                                                max_chars=2000)
+                            if st.form_submit_button("Save evidence review"):
+                                save_and_refresh(save_evidence_review, run_id, selected, source_id, verdict, note)
     linked_ids = {link["source_id"] for link in report["links"]}
     leads = [source for source in report["sources"] if source["id"] not in linked_ids]
     if leads:
         with st.expander(f"Unlinked research leads · {len(leads)}"):
-            st.caption("These results have no evidence assessment for an assumption.")
             for source in leads:
-                with st.container(border=True):
-                    st.markdown(f"**{plain(source['title'])}**")
-                    show_source_passage(source)
-    with st.expander("Run trace and limits"):
-        usage = report["usage"]
-        a, b, c = st.columns(3)
-        a.metric("Model calls", usage["model_calls"])
-        b.metric("Search calls", usage["search_calls"])
-        c.metric("Duration", f"{usage['elapsed_seconds']:.2f} s")
-        st.caption(f"Reported tokens · {usage['input_tokens']:,} input · {usage['output_tokens']:,} output")
-        if usage.get("model"):
-            st.caption(f"Model · {usage['model']}")
-        if (cost := usage.get("estimated_model_cost_usd")) is not None:
-            st.caption(f"Estimated model cost · ${cost:.4f} USD · Search excluded")
-        if report["mode"] == "live":
-            st.caption("Per run · up to 2 model calls, 5 searches, and 75 seconds")
-        for event in report["trace"]:
-            st.markdown(f"**{plain(event['stage'])}** · {plain(event['detail'])}")
-        for warning in report["warnings"]:
-            st.warning(warning)
+                st.markdown(f"**{plain(source['title'])}**")
+                source_passage(source)
 
 
-st.title("Idea Diligence")
-st.markdown("Find the assumptions your idea depends on, inspect the evidence, and choose what to test next.")
-st.divider()
+def show_experiment(report: dict, workspace: dict, run_id: int | None) -> None:
+    st.subheader("What to test next")
+    exp = report.get("experiment")
+    if not exp:
+        st.info("This run did not produce a complete experiment. See Run trace for details.")
+        return
+    left, right = st.columns([1.07, 1.0], gap="large")
+    with left, st.container(border=True):
+        st.markdown(f"### {plain(exp['title'])}")
+        st.caption(f"Tests assumption {exp['assumption_id']}")
+        for label, field in (("Procedure", "procedure"), ("Measure", "metric"),
+                             ("Decision threshold", "threshold")):
+            st.markdown(f"**{label}**")
+            st.markdown(plain(exp[field]))
+        st.caption(f"Time · {exp['time']}  |  Estimated cost · {exp['cost']}")
+    outcome = workspace.get("outcome") or {}
+    with right, st.container(border=True):
+        st.markdown("### Record the outcome")
+        st.caption("Enter real observations after running the test. Your decision is saved separately from the research.")
+        if run_id is None:
+            st.info("Save the analysis before recording outcomes.")
+            return
+        with st.form(f"outcome-{run_id}"):
+            status = st.selectbox("Test status", OUTCOME_STATUSES, format_func=str.title,
+                                  index=OUTCOME_STATUSES.index(outcome.get("status", "planned")))
+            a, b = st.columns(2)
+            with a:
+                observed = st.number_input("Total observed", min_value=0, max_value=1_000_000,
+                                           value=outcome.get("participants"), step=1)
+            with b:
+                qualifying = st.number_input("Met criterion", min_value=0, max_value=1_000_000,
+                                             value=outcome.get("qualifying"), step=1)
+            notes = st.text_area("Observations", value=outcome.get("notes", ""), max_chars=4000)
+            decision = st.selectbox("Founder decision", OUTCOME_DECISIONS, format_func=DECISION.get,
+                                    index=OUTCOME_DECISIONS.index(outcome.get("decision", "undecided")))
+            if st.form_submit_button("Save experiment outcome", type="primary"):
+                save_and_refresh(save_experiment_outcome, run_id, status, observed, qualifying, notes, decision)
 
-with st.sidebar:
-    st.header("Workspace")
-    st.caption("MIT 1.125 · Midpoint prototype")
-    st.button("Load demo brief", on_click=set_brief, args=(load_demo_brief(),), width="stretch")
-    if st.button("Run demo", type="primary", width="stretch"):
-        set_brief(load_demo_brief())
-        start_run(load_demo_brief(), "demo")
-    st.caption("The demo replays a curated brief and public source excerpts. It makes no external requests.")
-    st.divider()
-    st.subheader("Run history")
-    try:
-        history = recent_runs()
-        if history:
-            labels = {i: f"#{i} · {title}" for i, _, title, _ in history}
-            selected = st.selectbox("Saved analysis", list(labels), format_func=labels.get,
-                                    index=None, placeholder="Choose a run")
-            if selected is not None and st.button("Open run", width="stretch"):
-                if saved := load_run(selected):
-                    st.session_state.report = saved
-                    st.session_state.report_id = selected
-        else:
-            st.caption("Completed and partial runs appear here.")
-    except (OSError, sqlite3.Error):
-        st.warning("Local history is unavailable.")
 
-current = st.session_state.get("report")
-with st.expander("Idea brief", expanded=current is None):
-    with st.form("idea_brief"):
-        values = {}
-        for name, label, placeholder in FIELDS:
-            widget = st.text_input if name in {"title", "customer"} else st.text_area
-            values[name] = widget(label, placeholder=placeholder, key=f"brief_{name}")
-        live_enabled = live_available()
-        consent = st.checkbox("I’m using a public idea and agree to send its brief and research queries to the configured providers.",
-                              disabled=not live_enabled)
-        if not live_enabled:
-            st.caption("Set the model and search keys to analyze a custom idea. The curated demo is available in the sidebar.")
-        submitted = st.form_submit_button("Run live analysis", disabled=not live_enabled)
-    if submitted:
-        if consent:
-            start_run(values, "live", consent=True)
-        else:
-            st.error("Confirm public-idea provider access before running live research.")
+def show_trace(report: dict, workspace: dict) -> None:
+    st.subheader("Run trace")
+    usage = report["usage"]
+    a, b, c, d = st.columns(4)
+    a.metric("Model calls", usage["model_calls"])
+    b.metric("Search calls", usage["search_calls"])
+    c.metric("Source records", len(report["sources"]))
+    d.metric("Duration", f"{usage['elapsed_seconds']:.2f}s")
+    if usage.get("model"):
+        st.caption(f'{usage["model"]} · {usage["input_tokens"]:,} input tokens · {usage["output_tokens"]:,} output tokens')
+    if (cost := usage.get("estimated_model_cost_usd")) is not None:
+        st.caption(f"Estimated model cost · ${cost:.4f} USD, excluding search")
+    for event in report["trace"]:
+        st.markdown(f"**{plain(event['stage'])}** · {plain(event['detail'])}")
+    for warning in report["warnings"]:
+        st.warning(warning)
+    if workspace["reviews"] or workspace["outcome"]:
+        st.markdown("**Founder activity**")
+        for review in workspace["reviews"]:
+            st.caption(f'{review["assumption_id"]} · {review["source_id"]} · {REVIEW[review["verdict"]]} · {review["updated_at"]}')
+        if outcome := workspace["outcome"]:
+            st.caption(f'{outcome["assumption_id"]} · {outcome["status"].title()} · {DECISION[outcome["decision"]]} · {outcome["updated_at"]}')
 
-if current := st.session_state.get("report"):
-    show_result(current)
+
+def analysis_page(report: dict, run_id: int | None) -> None:
+    workspace = {"reviews": [], "outcome": None}
+    if run_id is not None:
+        try:
+            workspace = load_workspace(run_id)
+        except (sqlite3.Error, OSError):
+            st.warning("Saved evidence reviews and experiment outcomes are unavailable.")
+    assumptions = effective_assumptions(report, workspace["reviews"])
+    mode = "Curated demo" if report["mode"] == "demo" else "Live research"
+    counts = " · ".join((count_label(len(assumptions), "assumption"), count_label(len(report["sources"]), "source"),
+                         count_label(len(workspace["reviews"]), "evidence review")))
+    st.html(f'<div class="id-case-head"><div class="id-row-meta">{pill(mode)}'
+            f'{pill(report["status"].title(), report["status"])}</div>'
+            f'<h1>{h(report["brief"]["title"])}</h1>'
+            f'<p>{h(counts)}</p></div>')
+    if report["status"] == "partial":
+        st.warning("This run stopped early. The available evidence and the reason are saved in Run trace.")
+    view = st.segmented_control("Analysis section", ["Overview", "Evidence", "Experiment", "Run trace"],
+                                default="Overview", key=f"section-{run_id}", label_visibility="collapsed")
+    if view == "Evidence":
+        show_evidence(report, assumptions, workspace, run_id)
+    elif view == "Experiment":
+        show_experiment(report, workspace, run_id)
+    elif view == "Run trace":
+        show_trace(report, workspace)
+    else:
+        show_overview(report, assumptions, workspace)
+
+
+sidebar()
+if flash := st.session_state.pop("flash", None):
+    st.toast(flash)
+screen = st.session_state.get("screen", "home")
+if screen == "analysis" and (report := st.session_state.get("report")):
+    analysis_page(report, st.session_state.get("run_id"))
+elif screen == "brief":
+    idea_brief()
 else:
-    st.info("Run the Catch Me Up on Anything demo to see how competing products change what a founder should test.")
+    home()
