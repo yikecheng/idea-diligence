@@ -22,16 +22,15 @@ def test_curated_workspace_is_reproducible_and_persisted(monkeypatch, tmp_path):
     monkeypatch.delenv("TAVILY_API_KEY", raising=False)
     app = AppTest.from_file(str(APP)).run()
     assert not app.exception
+    click(app, "New idea")
     assert next(button for button in app.button if button.label == "Run live analysis").disabled
+    click(app, "Workspace home")
 
-    click(app, "Load demo brief")
-    assert app.text_input(key="brief_title").value == "Catch Me Up on Anything"
-    click(app, "Run demo")
+    click(app, "Open Catch Me Up on Anything demo")
 
     assert not app.exception
-    assert any("Challenged" in pane.label for pane in app.expander)
-    assert any("What to test next" == header.value for header in app.subheader)
-    assert len(app.get("download_button")) == 1
+    assert any("Assumption map" == header.value for header in app.subheader)
+    assert len(app.get("download_button")) == 2
     [(run_id, _, title, mode)] = recent_runs(database)
     assert title == "Catch Me Up on Anything" and mode == "demo"
     report = load_run(run_id, database)
@@ -41,6 +40,6 @@ def test_curated_workspace_is_reproducible_and_persisted(monkeypatch, tmp_path):
 
     reopened = AppTest.from_file(str(APP)).run()
     reopened.selectbox[0].select(run_id).run()
-    click(reopened, "Open run")
+    click(reopened, "Open saved analysis")
     assert not reopened.exception
-    assert any("What to test next" == header.value for header in reopened.subheader)
+    assert any("Assumption map" == header.value for header in reopened.subheader)

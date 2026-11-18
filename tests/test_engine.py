@@ -3,7 +3,7 @@ import os
 import unittest
 from unittest.mock import patch
 
-from idea_diligence.engine import load_demo_brief, run_analysis
+from idea_diligence.engine import list_demo_cases, load_demo_brief, run_analysis
 from idea_diligence.providers import ProviderError
 
 
@@ -52,6 +52,29 @@ class DemoTests(unittest.TestCase):
             ("A2", anypod["id"], "challenges"),
             [(item["assumption_id"], item["source_id"], item["stance"]) for item in result["links"]],
         )
+
+    def test_return_case_shifts_experiment_after_competitor_evidence(self):
+        demos = {case["slug"]: case for case in list_demo_cases()}
+        slug = "return-window"
+        brief = load_demo_brief(slug)
+        self.assertEqual(demos[slug]["title"], brief["title"])
+        with patch("idea_diligence.engine.model_json") as model, patch(
+            "idea_diligence.engine.search_web"
+        ) as search:
+            result = run_analysis(brief, demo_slug=slug)
+        model.assert_not_called()
+        search.assert_not_called()
+        self.assertEqual(result["demo_slug"], slug)
+        self.assertEqual(result["assumptions"][0]["status"], "challenged")
+        self.assertEqual(result["assumptions"][1]["status"], "context")
+        self.assertEqual(result["experiment"]["assumption_id"], "A2")
+        self.assertEqual({link["source_id"] for link in result["links"]}, {"S1", "S2", "S3", "S4"})
+
+    def test_demo_requires_a_matching_case_and_approved_slug(self):
+        with self.assertRaisesRegex(ValueError, "workspace catalog"):
+            load_demo_brief("../catch_me_up.json")
+        with self.assertRaisesRegex(ValueError, "Reload the selected example"):
+            run_analysis(self.brief, demo_slug="return-window")
 
 
 class LiveGuardrailTests(unittest.TestCase):
