@@ -32,7 +32,7 @@ def record(tmp_path):
 
 def test_review_persists_without_changing_machine_report(record):
     path, run_id, report = record
-    assert load_workspace(run_id, path) == {"reviews": [], "outcome": None}
+    assert load_workspace(run_id, path) == {"reviews": [], "outcome": None, "plan": None}
     assert recent_runs(path)[0][0] == run_id
     link = report["links"][0]
     assumption_id, source_id = link["assumption_id"], link["source_id"]
@@ -76,4 +76,4 @@ def test_rejects_invalid_links_and_incomplete_or_impossible_outcomes(record):
     with pytest.raises(ValueError, match="no\b|does not have"):
         partial = save_run({**report, "status": "partial", "experiment": None}, path)
         save_experiment_outcome(partial, "planned", None, None, path=path)
-    assert load_workspace(run_id, path) == {"reviews": [], "outcome": None}
+    assert load_workspace(run_id, path) == {"reviews": [], "outcome": None, "plan": None}
