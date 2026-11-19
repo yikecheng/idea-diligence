@@ -3,7 +3,8 @@
 import json
 import os
 import sqlite3
-from contextlib import closing
+from contextlib import closing, contextmanager
+from contextvars import ContextVar
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -15,6 +16,7 @@ from .public_search import MAX_HITS, _clean_query
 MAX_RESEARCH_ROUNDS = 20
 MAX_FOUNDER_SOURCES = 30
 MAX_FOUNDER_LINKS = 50
+_VISITOR_DATABASE = ContextVar("visitor_database", default=None)
 MAX_FOLLOWUP_EXPERIMENTS = 20
 
 SCHEMA = """
@@ -97,8 +99,24 @@ CREATE INDEX IF NOT EXISTS followup_experiments_run ON followup_experiments (run
 
 
 def database_path() -> Path:
+    if visitor_path := _VISITOR_DATABASE.get():
+        return visitor_path
     default = Path(__file__).resolve().parents[1] / ".local" / "runs.sqlite3"
     return Path(os.environ.get("IDEA_DILIGENCE_DB", default)).expanduser()
+
+
+@contextmanager
+def use_visitor_database(path: Path):
+    """Use a separate database for one browser session's script execution."""
+    token = _VISITOR_DATABASE.set(path)
+    try:
+        yield
+    finally:
+        _VISITOR_DATABASE.reset(token)
+
+
+def is_visitor_demo() -> bool:
+    return _VISITOR_DATABASE.get() is not None
 
 
 def connect(path: Path) -> sqlite3.Connection:

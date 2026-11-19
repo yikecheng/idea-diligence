@@ -15,12 +15,10 @@ from idea_diligence.priorities import current_assumptions, load_priority_updates
 from idea_diligence.report import escape_markdown as plain, render_html, render_markdown
 from idea_diligence.research_ui import show_research
 from idea_diligence.storage import (
-    list_followup_experiments, load_research, load_run, load_workspace, recent_runs, save_evidence_review,
-    save_experiment_outcome, save_followup_experiment, save_followup_outcome, save_founder_plan, save_run,
+    is_visitor_demo, list_followup_experiments, load_research, load_run, load_workspace, recent_runs,
+    save_evidence_review, save_experiment_outcome, save_followup_experiment, save_followup_outcome,
+    save_founder_plan, save_run,
 )
-
-st.set_page_config(page_title="Idea Diligence", page_icon="◈", layout="wide")
-st.html(Path(__file__).with_name("style.css").read_text(encoding="utf-8"))
 
 h = html.escape
 STATUS = {"open": "Open", "supported": "Supported", "challenged": "Challenged",
@@ -98,7 +96,10 @@ def sidebar() -> None:
         except (sqlite3.Error, OSError):
             st.warning("Saved analyses are unavailable.")
         st.divider()
-        st.caption("Analyses, decisions, and evaluation records are saved on this device.")
+        if is_visitor_demo():
+            st.caption("Public demo · Your work is kept for this browser session. Download a memo to keep it.")
+        else:
+            st.caption("Analyses, decisions, and evaluation records are saved on this device.")
 
 
 def home() -> None:
@@ -461,15 +462,23 @@ def analysis_page(report: dict, run_id: int | None) -> None:
         show_overview(report, assumptions, workspace, run_id)
 
 
-sidebar()
-if flash := st.session_state.pop("flash", None):
-    st.toast(flash)
-screen = st.session_state.get("screen", "home")
-if screen == "analysis" and (report := st.session_state.get("report")):
-    analysis_page(report, st.session_state.get("run_id"))
-elif screen == "brief":
-    idea_intake(persist_analysis, lambda brief: finish_run(brief, "live", consent=True))
-elif screen == "evaluation":
-    show_evaluation()
-else:
-    home()
+def main() -> None:
+    st.set_page_config(page_title="Idea Diligence", page_icon="◈", layout="wide")
+    st.html(Path(__file__).with_name("style.css").read_text(encoding="utf-8"))
+    sidebar()
+    if flash := st.session_state.pop("flash", None):
+        st.toast(flash)
+    screen = st.session_state.get("screen", "home")
+    if screen == "analysis" and (report := st.session_state.get("report")):
+        analysis_page(report, st.session_state.get("run_id"))
+    elif screen == "brief":
+        idea_intake(persist_analysis, lambda brief: finish_run(brief, "live", consent=True),
+                    visitor_demo=is_visitor_demo())
+    elif screen == "evaluation":
+        show_evaluation()
+    else:
+        home()
+
+
+if __name__ == "__main__":
+    main()

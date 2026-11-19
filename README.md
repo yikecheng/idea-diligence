@@ -12,10 +12,12 @@ Use Python 3.12. From this repository:
 python3.12 -m venv .venv
 source .venv/bin/activate
 python -m pip install -r requirements.txt
-streamlit run app.py
+streamlit run app.py --server.address 127.0.0.1
 ```
 
 Open the local URL printed by Streamlit. From **Workspace home**, choose **Catch Me Up on Anything** or **Return Deadline Assistant**. These examples replay curated public excerpts with zero provider requests.
+
+The public deployment entry point is `streamlit_app.py`. It keeps analyses and evaluation records in a separate temporary SQLite workspace for each browser session. Visitors can use the curated cases and public discussion search without API credentials. Download a memo or comparison result before leaving the session. The local entry point, `app.py`, supports persistent saved analyses and optional credentialed research.
 
 1. **Overview** ranks the assumptions and highlights the current unresolved priority. Record a score change and why it matters.
 2. **Research** saves public discussion searches and lets you attach a source excerpt to a specific assumption.

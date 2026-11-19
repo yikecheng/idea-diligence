@@ -143,8 +143,12 @@ def local_workspace(on_report) -> None:
             on_report(report)
 
 
-def idea_intake(on_report, on_live) -> None:
+def idea_intake(on_report, on_live, *, visitor_demo: bool = False) -> None:
     st.title("Research an idea")
+    if visitor_demo:
+        st.caption("Enter a public or fictional idea for this browser session.")
+        local_workspace(on_report)
+        return
     mode = st.radio("Research mode", ("Local evidence review", "AI research"), horizontal=True)
     if mode == "Local evidence review":
         st.markdown("Bring your own assumptions and evidence. Record a test, then revisit the analysis as you learn.")
