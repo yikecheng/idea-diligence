@@ -1,6 +1,6 @@
 # Idea Diligence midpoint recording
 
-Open [the app on this Mac](http://127.0.0.1:8501) and preload `idea_diligence/engine.py` at `_validated_links`. Start on **Workspace home**. The source and the proposed experiment are ready in **Catch Me Up on Anything**. The timings leave room to pause on the code and let people read.
+Open the [public demo](https://idea-diligence.streamlit.app/) or [the app on this Mac](http://127.0.0.1:8501) and preload `idea_diligence/engine.py` at `_validated_links`. Start on **Workspace home**. The source and the proposed experiment are ready in **Catch Me Up on Anything**. The timings leave room to pause on the code and let people read.
 
 ## 0:00–0:40 · Introduce it
 

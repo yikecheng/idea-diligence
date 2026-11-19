@@ -4,6 +4,8 @@ Idea Diligence helps early-stage founders and product teams decide what to test 
 
 MIT 1.125 Agentic Engineering · Fall 2026 · EK (Yike) Cheng · Founder workspace
 
+[Open the live website](https://idea-diligence.streamlit.app/) · [Midpoint video walkthrough](MIDPOINT_WALKTHROUGH.md)
+
 ## Try it
 
 Use Python 3.12. From this repository:
