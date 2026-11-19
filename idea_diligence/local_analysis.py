@@ -119,7 +119,7 @@ def _discussion_sources(rows, existing_source_count: int, recorded_at: str) -> l
         parts = urlsplit(url)
         if not (
             parts.netloc.lower() == "news.ycombinator.com" and parts.scheme == "https"
-            and parts.path == "/item" and re.fullmatch(r"id=[1-9][0-9]{0,14}", parts.query)
+            and parts.path == "/item" and re.fullmatch(r"id=[1-9][0-9]{0,15}", parts.query)
             and not parts.fragment
         ):
             raise ValueError(f"Discussion {position} needs a Hacker News item link.")

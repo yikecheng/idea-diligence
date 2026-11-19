@@ -8,6 +8,14 @@ Start the app from the project directory with `python -m streamlit run app.py` a
 2. Open **Evidence** and show the AnyPod source passage. Explain that it challenges differentiation. The claim about repeat listening still needs the pilot.
 3. Show **Experiment** and its four-of-eight threshold. Open **Overview → Download decision memo** if you want to show what a founder can share.
 
+## Show the founder returning with new evidence
+
+1. Open **Research** on a saved audio briefing case and search for `AI podcast`. Explain what the search can surface and why a discussion lead needs a closer read.
+2. Attach a real excerpt and review its relevance in **Evidence**. A competitor capability can inform a decision about differentiation. Repeat usage still calls for observations of your target customer.
+3. In **Overview**, open **Update a risk score**. For a rehearsal scenario, lower A1’s impact to 1 and explain why the team is now prioritizing a one-off paid use case. This makes A5 the highest-ranked open risk. Point out that the original repeat-listening plan is still visible.
+4. Open **Experiment** and expand **Plan a follow-up test**. Show that the changed priority is preselected and propose a measurable paid offer. In the final video, label any entered outcomes as simulated unless the test has run.
+5. Use **Evaluation Lab** in the code or methods portion of the demo. Show what the class would compare and how judgments are collected. The offline benchmark supplies a separate engineering check.
+
 ## Show a genuinely new idea
 
 1. Select **New idea → Local evidence review**. Use the example fields below or a new idea from the audience.

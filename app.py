@@ -7,14 +7,16 @@ from urllib.parse import urlsplit
 
 import streamlit as st
 
-from idea_diligence.decision import (
-    EVIDENCE_VERDICTS, OUTCOME_DECISIONS, OUTCOME_STATUSES, effective_assumptions,
-)
+from idea_diligence.decision import EVIDENCE_VERDICTS, OUTCOME_DECISIONS, OUTCOME_STATUSES
 from idea_diligence.engine import list_demo_cases, load_demo_brief, run_analysis
+from idea_diligence.evaluation_ui import show_evaluation
 from idea_diligence.intake import experiment_form_fields, idea_intake
+from idea_diligence.priorities import current_assumptions, load_priority_updates, next_priority, save_priority_update
 from idea_diligence.report import escape_markdown as plain, render_html, render_markdown
+from idea_diligence.research_ui import show_research
 from idea_diligence.storage import (
-    load_run, load_workspace, recent_runs, save_evidence_review, save_experiment_outcome, save_founder_plan, save_run,
+    list_followup_experiments, load_research, load_run, load_workspace, recent_runs, save_evidence_review,
+    save_experiment_outcome, save_followup_experiment, save_followup_outcome, save_founder_plan, save_run,
 )
 
 st.set_page_config(page_title="Idea Diligence", page_icon="◈", layout="wide")
@@ -34,7 +36,8 @@ def pill(label: str, tone: str = "") -> str:
 
 
 def count_label(count: int, noun: str) -> str:
-    return f"{count} {noun}{'' if count == 1 else 's'}"
+    suffix = "" if count == 1 else "es" if noun.endswith("ch") else "s"
+    return f"{count} {noun}{suffix}"
 
 
 def change_page(page: str) -> None:
@@ -78,6 +81,7 @@ def sidebar() -> None:
           </div>""")
         st.button("Workspace home", width="stretch", on_click=change_page, args=("home",))
         st.button("New idea", width="stretch", on_click=change_page, args=("brief",))
+        st.button("Evaluation lab", width="stretch", on_click=change_page, args=("evaluation",))
         st.divider()
         st.markdown("**Saved analyses**")
         try:
@@ -94,7 +98,7 @@ def sidebar() -> None:
         except (sqlite3.Error, OSError):
             st.warning("Saved analyses are unavailable.")
         st.divider()
-        st.caption("Runs and reviews are saved on this device.")
+        st.caption("Analyses, decisions, and evaluation records are saved on this device.")
 
 
 def home() -> None:
@@ -119,37 +123,71 @@ def home() -> None:
                 finish_run(load_demo_brief(case["slug"]), "demo", demo_slug=case["slug"])
 
 
-def show_overview(report: dict, assumptions: list[dict], workspace: dict) -> None:
+def edit_priority(assumptions: list[dict], run_id: int) -> None:
+    by_id = {row["id"]: row for row in assumptions}
+    with st.expander("Update a risk score"):
+        st.caption("Impact is the consequence if an assumption is wrong. Uncertainty is how much is still unknown.")
+        key = f"risk-target-{run_id}"
+        st.session_state.setdefault(key, assumptions[0]["id"])
+        aid = st.selectbox("Assumption to update", sorted(by_id),
+                           format_func=lambda key: f'{key} · {by_id[key]["category"].title()}',
+                           key=key)
+        row = by_id[aid]
+        st.markdown(plain(row["statement"]))
+        with st.form(f"risk-score-{run_id}-{aid}"):
+            col_impact, col_uncertainty = st.columns(2)
+            scores = (1, 2, 3, 4, 5)
+            impact = col_impact.selectbox("Impact", scores, index=row["current_impact"] - 1)
+            uncertainty = col_uncertainty.selectbox("Uncertainty", scores, index=row["current_uncertainty"] - 1)
+            reason = st.text_area("What changed?", max_chars=500,
+                                  placeholder="Reference an excerpt, an experiment result, or a revised judgment.")
+            if st.form_submit_button("Save risk update", type="primary"):
+                save_and_refresh(save_priority_update, run_id, aid, impact, uncertainty, reason)
+
+
+def show_overview(report: dict, assumptions: list[dict], workspace: dict, run_id: int | None) -> None:
     experiment = report.get("experiment") or workspace.get("plan")
     outcome = workspace.get("outcome") or {}
-    target = next((row for row in assumptions if experiment and row["id"] == experiment["assumption_id"]), None)
+    target = workspace["priority"]
     if target:
         decision = DECISION[outcome.get("decision", "undecided")]
+        focus = f'{target["id"]} · {target["current_risk"]}/25 risk · {STATUS[target["current_status"]]}'
         st.html(f"""
           <div class="id-brief"><div>
-            <small>PRIORITY ASSUMPTION</small>
+            <small>CURRENT RESEARCH PRIORITY</small>
             <h2>{h(target['statement'])}</h2>
-            <p>{h(experiment['title'])}</p>
+            <p>{h(focus)}</p>
             </div><div class="id-brief-side">
-            <small>FOUNDER DECISION</small><strong>{h(decision)}</strong>
-            <span>{h(outcome.get("status", "planned").title())} experiment</span>
+            <small>ORIGINAL EXPERIMENT</small><strong>{h(decision) if experiment else "Awaiting plan"}</strong>
+            <span>{h(experiment["assumption_id"] + " · " + outcome.get("status", "planned").title()) if experiment else "Plan your first test"}</span>
           </div></div>""")
+    elif assumptions:
+        st.info("Every assumption has directional evidence in the workspace. Check its relevance and strength before acting.")
     left, right = st.columns([1.65, 1], gap="large")
     with left:
         st.subheader("Assumption map")
-        st.caption("Impact × uncertainty sets the initial priority. Review links in Evidence.")
+        st.caption("Impact × uncertainty ranks all risks. The focus above is the highest-ranked question still open for research.")
         for row in assumptions:
-            status = row["status"]
-            reviewed = row["reviewed_status"]
-            subtitle = "Review pending" if reviewed is None else f"After review · {STATUS[reviewed]}"
+            status = row["current_status"]
+            subtitle = f'{row["id"]} · Impact {row["current_impact"]}/5 · Uncertainty {row["current_uncertainty"]}/5'
+            if row["pending_addition"]:
+                subtitle += " · New excerpt to review"
+            elif row["questioned_count"]:
+                subtitle += " · Evidence questioned"
+            if (update := row["priority_update"]) is not None:
+                subtitle += f' · Initially {row["risk"]}/25'
+            note = f'<small>{h(update["reason"])}</small>' if update else ""
+            focus_badge = pill("Research priority") if target and row["id"] == target["id"] else ""
             st.html(f"""
-              <div class="id-assumption"><div class="id-risk"><strong>{row["risk"]}</strong><span>/ 25</span></div>
+              <div class="id-assumption"><div class="id-risk"><strong>{row["current_risk"]}</strong><span>/ 25</span></div>
                 <div class="id-assumption-body"><div class="id-row-meta">
-                  <span>{h(row["category"].title())}</span>{pill(STATUS[status], status)}
-                </div><p>{h(row["statement"])}</p><small>{h(subtitle)}</small></div>
+                  <span>{h(row["category"].title())}</span>{pill(STATUS[status], status)}{focus_badge}
+                </div><p>{h(row["statement"])}</p><small>{h(subtitle)}</small>{note}</div>
               </div>""")
         if not assumptions:
             st.info("This run stopped before producing an assumption map. See Run trace for details.")
+        elif run_id is not None:
+            edit_priority(assumptions, run_id)
     with right:
         st.subheader("Decision brief")
         with st.container(border=True):
@@ -199,19 +237,22 @@ def show_evidence(report: dict, assumptions: list[dict], workspace: dict, run_id
     left, right = st.columns([0.92, 1.73], gap="large")
     lookup = {row["id"]: row for row in assumptions}
     source_by_id = {source["id"]: source for source in report["sources"]}
-    candidates = sorted(assumptions, key=lambda row: (not any(
+    candidates = sorted(assumptions, key=lambda row: (not row["pending_addition"], not any(
         link["assumption_id"] == row["id"] and link["stance"] == "challenges" for link in report["links"]
-    ), -row["risk"]))
+    ), -row["current_risk"]))
     with left:
-        selected = st.radio("Choose an assumption", [row["id"] for row in candidates],
-                            format_func=lambda aid: f'{aid} · {lookup[aid]["category"].title()} · {STATUS[lookup[aid]["status"]]}',
-                            key=f"evidence-choice-{run_id}")
+        key = f"evidence-choice-{run_id}"
+        st.session_state.setdefault(key, candidates[0]["id"])
+        selected = st.radio("Choose an assumption", sorted(lookup),
+                            format_func=lambda aid: f'{aid} · {lookup[aid]["category"].title()}',
+                            key=key)
         row = lookup[selected]
         st.markdown(f"**{plain(row['statement'])}**")
-        st.caption(f"Impact {row['impact']}/5 · Uncertainty {row['uncertainty']}/5")
+        st.caption(f"{STATUS[row['current_status']]} · Impact {row['current_impact']}/5 · Uncertainty {row['current_uncertainty']}/5")
         st.markdown(plain(row["reason"]))
     with right:
         links = [item for item in report["links"] if item["assumption_id"] == selected]
+        links.sort(key=lambda item: "proposed_stance" not in item)
         if not links:
             st.info("No passage is linked to this assumption. It remains an open research question.")
         for link in links:
@@ -224,7 +265,10 @@ def show_evidence(report: dict, assumptions: list[dict], workspace: dict, run_id
                 st.html(f'<div class="id-card-meta">{pill(STANCE[link["stance"]], link["stance"])}'
                         f'{pill(REVIEW[review["verdict"]] if review else "Awaiting review")}</div>')
                 st.markdown(f"#### {plain(source['title'])}")
-                st.markdown(plain(link["reason"]))
+                if proposed := link.get("proposed_stance"):
+                    st.caption(f"Founder proposal · {STANCE[proposed]}. Founder excerpts contribute context. Record any change in judgment on the assumption map.")
+                if link["reason"]:
+                    st.markdown(plain(link["reason"]))
                 source_passage(source)
                 if run_id is not None:
                     with st.expander("Review this link"):
@@ -246,19 +290,7 @@ def show_evidence(report: dict, assumptions: list[dict], workspace: dict, run_id
                 source_passage(source)
 
 
-def show_experiment(report: dict, workspace: dict, run_id: int | None) -> None:
-    st.subheader("What to test next")
-    exp = report.get("experiment") or workspace.get("plan")
-    if not exp:
-        if run_id is not None and report.get("assumptions"):
-            st.caption("Choose a measurable threshold before collecting observations.")
-            with st.form(f"later-plan-{run_id}"):
-                plan = experiment_form_fields(f"later-plan-{run_id}", [row["id"] for row in report["assumptions"]])
-                if st.form_submit_button("Save test plan", type="primary"):
-                    save_and_refresh(save_founder_plan, run_id, plan)
-        else:
-            st.info("Save an analysis with at least one assumption to plan a test.")
-        return
+def show_test_and_outcome(exp: dict, outcome: dict, run_id: int | None, experiment_id: int | None = None) -> None:
     left, right = st.columns([1.07, 1.0], gap="large")
     with left, st.container(border=True):
         st.markdown(f"### {plain(exp['title'])}")
@@ -268,14 +300,13 @@ def show_experiment(report: dict, workspace: dict, run_id: int | None) -> None:
             st.markdown(f"**{label}**")
             st.markdown(plain(exp[field]))
         st.caption(f"Time · {exp['time']}  |  Estimated cost · {exp['cost']}")
-    outcome = workspace.get("outcome") or {}
     with right, st.container(border=True):
         st.markdown("### Record the outcome")
         st.caption("Enter real observations after running the test. Your decision is saved separately from the research.")
         if run_id is None:
             st.info("Save the analysis before recording outcomes.")
             return
-        with st.form(f"outcome-{run_id}"):
+        with st.form(f"outcome-{run_id}-{experiment_id}"):
             status = st.selectbox("Test status", OUTCOME_STATUSES, format_func=str.title,
                                   index=OUTCOME_STATUSES.index(outcome.get("status", "planned")))
             a, b = st.columns(2)
@@ -289,7 +320,49 @@ def show_experiment(report: dict, workspace: dict, run_id: int | None) -> None:
             decision = st.selectbox("Founder decision", OUTCOME_DECISIONS, format_func=DECISION.get,
                                     index=OUTCOME_DECISIONS.index(outcome.get("decision", "undecided")))
             if st.form_submit_button("Save experiment outcome", type="primary"):
-                save_and_refresh(save_experiment_outcome, run_id, status, observed, qualifying, notes, decision)
+                if experiment_id is None:
+                    save_and_refresh(save_experiment_outcome, run_id, status, observed, qualifying, notes, decision)
+                else:
+                    save_and_refresh(save_followup_outcome, run_id, experiment_id, status, observed, qualifying, notes, decision)
+
+
+def show_experiment(report: dict, workspace: dict, run_id: int | None) -> None:
+    st.subheader("Experiments")
+    original = report.get("experiment") or workspace.get("plan")
+    priority = workspace["priority"]
+    ids = [row["id"] for row in report["assumptions"]]
+    suggested = priority["id"] if priority else ids[0] if ids else None
+    if not original:
+        if run_id is not None and ids:
+            st.caption("Choose a measurable threshold before collecting observations.")
+            with st.form(f"later-plan-{run_id}"):
+                plan = experiment_form_fields(f"later-plan-{run_id}", ids, suggested)
+                if st.form_submit_button("Save test plan", type="primary"):
+                    save_and_refresh(save_founder_plan, run_id, plan)
+        else:
+            st.info("Save an analysis with at least one assumption to plan a test.")
+        return
+    followups = {row["id"]: row for row in workspace["followups"]}
+    if priority:
+        st.caption(f'Current research priority · {priority["id"]} · {priority["statement"]}')
+    if followups:
+        def plan_label(key: int) -> str:
+            return (f'{followups[key]["plan"]["assumption_id"]} · {followups[key]["plan"]["title"]}'
+                    if key else f'Original · {original["title"]}')
+
+        selected = st.selectbox("View test plan", [*followups, 0], format_func=plan_label,
+                                key=f"test-selection-{run_id}")
+    else:
+        selected = 0
+    record = followups[selected] if selected else {"plan": original, "outcome": workspace.get("outcome")}
+    show_test_and_outcome(record["plan"], record["outcome"] or {}, run_id, selected or None)
+    if run_id is not None and ids:
+        with st.expander("Plan a follow-up test"):
+            st.caption("Save a new procedure and threshold. You can return to view any earlier plan and outcome.")
+            with st.form(f"followup-{run_id}"):
+                plan = experiment_form_fields(f"followup-{run_id}", ids, suggested)
+                if st.form_submit_button("Save follow-up test", type="primary"):
+                    save_and_refresh(save_followup_experiment, run_id, plan)
 
 
 def show_trace(report: dict, workspace: dict) -> None:
@@ -308,6 +381,8 @@ def show_trace(report: dict, workspace: dict) -> None:
         st.markdown(f"**{plain(event['stage'])}** · {plain(event['detail'])}")
     for warning in report["warnings"]:
         st.warning(warning)
+    if workspace["rounds"]:
+        st.caption(count_label(len(workspace["rounds"]), "completed follow-up search"))
     if workspace["reviews"] or workspace["outcome"] or workspace.get("plan"):
         st.markdown("**Founder activity**")
         if plan := workspace.get("plan"):
@@ -316,16 +391,50 @@ def show_trace(report: dict, workspace: dict) -> None:
             st.caption(f'{review["assumption_id"]} · {review["source_id"]} · {REVIEW[review["verdict"]]} · {review["updated_at"]}')
         if outcome := workspace["outcome"]:
             st.caption(f'{outcome["assumption_id"]} · {outcome["status"].title()} · {DECISION[outcome["decision"]]} · {outcome["updated_at"]}')
+    if workspace["priority_updates"]:
+        st.markdown("**Risk revisions**")
+        previous = {row["id"]: row["risk"] for row in report["assumptions"]}
+        for row in workspace["priority_updates"]:
+            aid = row["assumption_id"]
+            updated_risk = row["impact"] * row["uncertainty"]
+            st.caption(f'{aid} · {previous[aid]}/25 → {updated_risk}/25 · {row["created_at"]}')
+            st.text(row["reason"])
+            previous[aid] = updated_risk
+    if workspace["activity"]:
+        with st.expander("Workspace change log", expanded=True):
+            for event in workspace["activity"]:
+                detail = event["detail"]
+                label = event["kind"].replace("_", " ").replace("followup", "follow-up").capitalize()
+                ref = detail.get("assumption_id") or f'Round {detail.get("round_id")}'
+                suffix = ""
+                if detail.get("source_id"):
+                    suffix = f' · {detail["source_id"]}'
+                if detail.get("verdict"):
+                    suffix += f' · {REVIEW[detail["verdict"]]}'
+                    if detail.get("previous_verdict") and detail["previous_verdict"] != detail["verdict"]:
+                        suffix += f' (was {REVIEW[detail["previous_verdict"]]})'
+                if detail.get("experiment_id"):
+                    suffix += f' · Test {detail["experiment_id"]}'
+                if detail.get("decision"):
+                    suffix += f' · {DECISION[detail["decision"]]}'
+                st.caption(f'{event["created_at"]} · {label} · {ref}{suffix}')
 
 
 def analysis_page(report: dict, run_id: int | None) -> None:
-    workspace = {"reviews": [], "outcome": None, "plan": None}
+    workspace = {"reviews": [], "outcome": None, "plan": None, "priority_updates": [], "followups": []}
+    research = {"sources": [], "links": [], "rounds": [], "activity": []}
     if run_id is not None:
         try:
-            workspace = load_workspace(run_id)
+            workspace.update(load_workspace(run_id))
+            research = load_research(run_id)
+            workspace["priority_updates"] = load_priority_updates(run_id)
+            workspace["followups"] = list_followup_experiments(run_id)
         except (sqlite3.Error, OSError):
-            st.warning("Saved evidence reviews and experiment outcomes are unavailable.")
-    assumptions = effective_assumptions(report, workspace["reviews"])
+            st.warning("Some saved workspace activity is unavailable.")
+    report = {**report, "sources": [*report["sources"], *research["sources"]],
+              "links": [*report["links"], *research["links"]]}
+    assumptions = current_assumptions(report, workspace["reviews"], workspace["priority_updates"])
+    workspace.update(priority=next_priority(assumptions), rounds=research["rounds"], activity=research["activity"])
     mode = MODES.get(report["mode"], "Research")
     linked_ids = {link["source_id"] for link in report["links"]}
     counts = [count_label(len(assumptions), "assumption"), count_label(len(linked_ids), "linked source")]
@@ -338,16 +447,18 @@ def analysis_page(report: dict, run_id: int | None) -> None:
             f'<p>{h(" · ".join(counts))}</p></div>')
     if report["status"] == "partial":
         st.warning("This run stopped early. The available evidence and the reason are saved in Run trace.")
-    view = st.segmented_control("Analysis section", ["Overview", "Evidence", "Experiment", "Run trace"],
+    view = st.segmented_control("Analysis section", ["Overview", "Research", "Evidence", "Experiment", "Run trace"],
                                 default="Overview", key=f"section-{run_id}", label_visibility="collapsed")
-    if view == "Evidence":
+    if view == "Research":
+        show_research(report, research, run_id, save_and_refresh, source_passage)
+    elif view == "Evidence":
         show_evidence(report, assumptions, workspace, run_id)
     elif view == "Experiment":
         show_experiment(report, workspace, run_id)
     elif view == "Run trace":
         show_trace(report, workspace)
     else:
-        show_overview(report, assumptions, workspace)
+        show_overview(report, assumptions, workspace, run_id)
 
 
 sidebar()
@@ -358,5 +469,7 @@ if screen == "analysis" and (report := st.session_state.get("report")):
     analysis_page(report, st.session_state.get("run_id"))
 elif screen == "brief":
     idea_intake(persist_analysis, lambda brief: finish_run(brief, "live", consent=True))
+elif screen == "evaluation":
+    show_evaluation()
 else:
     home()

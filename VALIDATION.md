@@ -1,5 +1,15 @@
 # Validation
 
+## Research-cycle rehearsal
+
+- In Chrome, reopened the audio briefing sample and ran the real `AI podcast` search twice. Each run returned five discussion links. The repeat search stored the second round and reused the first round’s five source IDs.
+- Attached a NotebookLM product excerpt to the repeat-use assumption and accepted it as context. The selection originally jumped after saving. The revised evidence screen keeps the chosen assumption and reviewed excerpt in view.
+- Used a simulated founder judgment to lower the initial repeat-use assumption from 25 to 5. Willingness to pay moved to the first open position at 16. Saved a distinct pricing test and a simulated outcome while retaining the original concierge pilot.
+- Ran a synthetic three-condition comparison in Chrome. Methods stayed masked during review. Once the independent scores and separate founder preference were both submitted, the results table and JSON export became available.
+- The offline engineering replay checks eight fixed cases against scripted providers. The Chrome review submission and sample experiment outcomes used simulated inputs. Classmate results and credentialed AI performance remain unmeasured.
+
+Source for the attached excerpt [Google’s announcement of NotebookLM Deep Research](https://blog.google/innovation-and-ai/models-and-research/google-labs/notebooklm-deep-research-file-types/).
+
 ## Live-demo rehearsal · November 18, 2026
 
 The browser runs used a separate local database. The search results came from the real Hacker News Search endpoint. All recorded experiment outcomes were simulated for QA.
@@ -53,7 +63,7 @@ Recruit five to ten volunteers with ideas they are comfortable sharing. Before a
 2. A static competitor report.
 3. Idea Diligence.
 
-Remove product names from the outputs where practical and present them in randomized order. The idea owner marks whether a competitor or belief was new to them and scores overall preference separately. An independent reviewer with product or research experience uses the same rubric for each output; a second reviewer can double-score a subset and record disagreements. Use the frozen pre-output brief to judge whether a risk was overlooked and plausible enough to affect the decision. Score unsupported or unverifiable claims and missing experiment recommendations explicitly.
+Remove the method names and recognizable headers from the outputs and retain competitor names and source links. **Evaluation Lab** freezes the three outputs and assigns stable A/B/C labels. The idea owner records new alternatives and beliefs and records preference separately. An independent reviewer with product or research experience applies the same rubric to each output. Register a second reviewer for a subset to measure disagreements. Use the frozen pre-output brief to judge whether a risk was overlooked and plausible enough to affect the decision.
 
 | Experiment criterion | Score 0–2 |
 | --- | --- |

@@ -104,6 +104,10 @@ class LiveGuardrailTests(unittest.TestCase):
                         "reason": "A search snippet describes an existing alternative.",
                     },
                     {
+                        "assumption_id": "A5", "source_id": "S1", "stance": "challenges",
+                        "reason": "This competitor means listeners will never pay for another audio service.",
+                    },
+                    {
                         "assumption_id": "A2", "source_id": "S99", "stance": "supports",
                         "reason": "The cited source ID was never retrieved.",
                     },
@@ -132,8 +136,11 @@ class LiveGuardrailTests(unittest.TestCase):
         self.assertEqual(result["usage"]["model_calls"], 2)
         self.assertEqual(len(result["sources"]), 2)
         self.assertEqual([source["kind"] for source in result["sources"]], ["page_excerpt", "search_snippet"])
-        self.assertEqual([link["stance"] for link in result["links"]], ["context", "context"])
+        self.assertEqual([link["stance"] for link in result["links"]], ["context", "context", "context"])
         self.assertEqual({link["source_id"] for link in result["links"]}, {"S1", "S2"})
+        states = {row["id"]: row["status"] for row in result["assumptions"]}
+        self.assertEqual(states["A1"], "context")
+        self.assertEqual(states["A5"], "context")
         self.assertEqual(result["status"], "partial")
         self.assertTrue(result["warnings"])
         self.assertEqual(result["experiment"]["assumption_id"], "A1")

@@ -90,6 +90,20 @@ def _markdown_source(source: dict) -> str:
     return f"{title} · {kind} · {date}"
 
 
+def _revision_rows(report: dict, workspace: dict):
+    scores = {row["id"]: row["risk"] for row in report.get("assumptions", [])}
+    for update in workspace.get("priority_updates", []):
+        aid = update["assumption_id"]
+        before = scores[aid]
+        after = update["impact"] * update["uncertainty"]
+        scores[aid] = after
+        yield f"{aid} · {before}/25 → {after}/25 · {update['created_at']}", update["reason"]
+
+
+def _followups(workspace: dict) -> list[dict]:
+    return list(reversed(workspace.get("followups", [])))
+
+
 def render_markdown(report: dict, workspace: dict | None = None) -> str:
     plain = escape_markdown
     workspace = workspace or {}
@@ -100,6 +114,16 @@ def render_markdown(report: dict, workspace: dict | None = None) -> str:
     for key, label in BRIEF_FIELDS:
         if brief.get(key):
             lines.append(f"- **{label}** — {plain(brief[key])}")
+    if priority := workspace.get("priority"):
+        lines += ["", "## Current research priority", "",
+                  f"**{plain(priority['id'])}** · {plain(priority['statement'])}",
+                  f"Current risk {priority['current_risk']}/25.",
+                  ""]
+        if update := priority.get("priority_update"):
+            lines.append(plain(update["reason"]))
+    if revisions := list(_revision_rows(report, workspace)):
+        lines += ["", "## Risk revisions", "",
+                  *[f"- {plain(label)} · {plain(reason)}" for label, reason in revisions]]
     lines += ["", "## Assumptions and evidence", "",
               "Risk is impact × uncertainty on two 1–5 scales. Statuses reflect the recorded research run.", ""]
     for row in report.get("assumptions", []):
@@ -108,9 +132,10 @@ def render_markdown(report: dict, workspace: dict | None = None) -> str:
                   f"{plain(row['category'].title())} · {plain(row['status'].title())} · Risk {plain(row['risk'])}/25",
                   "", plain(row["reason"]), ""]
         for link, source, review in grouped.get(aid, []):
-            lines += [f"**{plain(link['stance'].title())}** · {plain(link['reason'])}",
-                      *[f"> {plain(line)}" for line in source["passage"].splitlines()],
-                      _markdown_source(source)]
+            lines.append(f"**{plain(link['stance'].title())}** · {plain(link['reason'])}")
+            if proposed := link.get("proposed_stance"):
+                lines.append(f"Founder proposal · {plain(proposed.title())}")
+            lines += [*[f"> {plain(line)}" for line in source["passage"].splitlines()], _markdown_source(source)]
             if review:
                 lines.append(f"**Founder review** — {_review_label(review)}"
                              + (f" · {plain(review['note'])}" if review.get("note") else ""))
@@ -130,6 +155,20 @@ def render_markdown(report: dict, workspace: dict | None = None) -> str:
                   f"**{decision}** · {plain(outcome['status'].title())} · {plain(_observed_metric(outcome))}"]
         if outcome.get("notes"):
             lines += ["", plain(outcome["notes"])]
+    if followups := _followups(workspace):
+        lines += ["", "## Follow-up experiments"]
+        for record in followups:
+            plan = record["plan"]
+            lines += ["", f"### {plain(plan['title'])}", "",
+                      *[f"- **{label}** — {plain(plan[key])}" for key, label in EXPERIMENT_FIELDS]]
+            if outcome := record["outcome"]:
+                lines += ["", f"**{plain(outcome['decision'].title())}** · {plain(outcome['status'].title())}"
+                          f" · {plain(_observed_metric(outcome))}", "", plain(outcome["notes"])]
+    if rounds := workspace.get("rounds"):
+        lines += ["", "## Follow-up search history", ""]
+        for record in reversed(rounds):
+            lines.append(f"- {plain(record['query'])} · {record['result_count']} results"
+                         f" · {record['added_count']} new · {plain(record['created_at'])}")
     if leads:
         lines += ["", "## Unlinked research leads", ""]
         for source in leads:
@@ -166,9 +205,10 @@ def _html_evidence(grouped: dict, assumptions: list) -> str:
                 label = _review_label(review)
                 note = f' · {_html(review["note"])}' if review.get("note") else ""
                 review_html = f'<p class="review"><strong>Founder review</strong> · {label}{note}</p>'
+            proposal = f'<p class="source">Founder proposal · {_html(link["proposed_stance"].title())}</p>' if link.get("proposed_stance") else ""
             evidence.append(
                 f'<div class="evidence"><p><strong>{stance}</strong> · {_html(link["reason"])}</p>'
-                f'{_html_source(source)}{review_html}</div>'
+                f'{proposal}{_html_source(source)}{review_html}</div>'
             )
         evidence_html = "".join(evidence) or '<p class="muted">Awaiting source evidence.</p>'
         status = row["status"].lower()
@@ -180,6 +220,40 @@ def _html_evidence(grouped: dict, assumptions: list) -> str:
             f'<h3>{_html(row["statement"])}</h3><p>{_html(row["reason"])}</p>{evidence_html}</article>'
         )
     return "".join(cards) or '<p class="muted">Awaiting an assumption assessment.</p>'
+
+
+def _html_workspace(report: dict, workspace: dict) -> tuple[str, str]:
+    focus = ""
+    if priority := workspace.get("priority"):
+        update = priority.get("priority_update")
+        note = f'<p>{_html(update["reason"])}</p>' if update else ""
+        focus = (
+            '<section class="next"><h2>Current research priority</h2>'
+            f'<h3>{_html(priority["id"])} · {_html(priority["statement"])}</h3>'
+            f'<p>Current risk {_html(priority["current_risk"])}/25</p>{note}</section>'
+        )
+    sections = []
+    if revisions := list(_revision_rows(report, workspace)):
+        sections.append('<section><h2>Risk revisions</h2><ul>' + "".join(
+            f'<li>{_html(label)} · {_html(reason)}</li>' for label, reason in revisions) + '</ul></section>')
+    if followups := _followups(workspace):
+        cards = []
+        for record in followups:
+            plan = record["plan"]
+            fields = "".join(f'<div><dt>{label}</dt><dd>{_html(plan[key])}</dd></div>'
+                             for key, label in EXPERIMENT_FIELDS)
+            result = ""
+            if outcome := record["outcome"]:
+                result = (f'<p><strong>{_html(outcome["decision"].title())}</strong> · '
+                          f'{_html(outcome["status"].title())} · {_html(_observed_metric(outcome))}</p>'
+                          f'<p class="notes">{_html(outcome["notes"])}</p>')
+            cards.append(f'<article class="risk"><h3>{_html(plan["title"])}</h3><dl class="facts">{fields}</dl>{result}</article>')
+        sections.append('<section><h2>Follow-up experiments</h2>' + "".join(cards) + '</section>')
+    if rounds := workspace.get("rounds"):
+        items = "".join(f'<li>{_html(row["query"])} · {row["result_count"]} results · {row["added_count"]} new'
+                        f' · {_html(row["created_at"])}</li>' for row in reversed(rounds))
+        sections.append(f'<section><h2>Follow-up search history</h2><ul>{items}</ul></section>')
+    return focus, "".join(sections)
 
 
 def render_html(report: dict, workspace: dict | None = None) -> str:
@@ -231,6 +305,7 @@ def render_html(report: dict, workspace: dict | None = None) -> str:
         "local": "The founder supplied the assumptions and any linked excerpts. Public discussions are research leads.",
     }.get(report["mode"], "Research findings reflect the sources retrieved in this run. Customer behavior requires direct evidence.")
     provenance = f'<p class="muted">{_html(provenance_text)}</p>'
+    current_focus, workspace_html = _html_workspace(report, workspace)
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -242,11 +317,13 @@ def render_html(report: dict, workspace: dict | None = None) -> str:
 <h1>{_html(brief['title'])}</h1>
 <p class="run">{_mode(report)} · {_html(report['status'].title())} research run</p></header>
 <section><h2>Idea brief</h2><dl class="facts">{brief_html}</dl></section>
+{current_focus}
 {outcome_html}
 <section class="next"><h2>{experiment_label}</h2>{test_html}</section>
 <section><h2>Assumptions and evidence</h2>
 <p class="muted">Risk is impact × uncertainty. Statuses reflect the recorded research run.</p>
 {_html_evidence(grouped, assumptions)}</section>
+{workspace_html}
 {leads_html}
 <section class="provenance"><h2>Run notes</h2>{provenance}{usage_html}
 {'<ul>' + warnings + '</ul>' if warnings else ''}

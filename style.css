@@ -75,6 +75,8 @@
 .id-risk { min-width: 2.85rem; padding-top: .1rem; color: var(--id-ink); text-align: center; }
 .id-risk strong { display: block; font-size: 1.6rem; line-height: 1.1; font-variant-numeric: tabular-nums; }
 .id-risk span, .id-assumption-body small { color: var(--id-muted); font-size: .8rem; }
+.id-assumption-body small { display: block; }
+.id-assumption-body small + small { margin-top: .25rem; }
 .id-assumption-body p { margin: .38rem 0 .22rem; color: var(--id-ink); font-size: 1rem; line-height: 1.48; }
 .id-source-quote { margin: .26rem 0; padding: .87rem 1rem; border-left: .19rem solid #628e81;
    background: #f0f5f3; border-radius: 0 .34rem .34rem 0; color: #213944; font: 1.06rem/1.58 var(--id-display);

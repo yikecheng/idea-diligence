@@ -109,8 +109,10 @@ def experiment_fields(draft: str, count: int) -> dict | None:
         return experiment_form_fields(draft, [f"A{i}" for i in range(1, count + 1)])
 
 
-def experiment_form_fields(prefix: str, assumption_ids: list[str]) -> dict:
-    target = st.selectbox("Assumption to test", ["Highest risk", *assumption_ids], key=f"{prefix}:test-a")
+def experiment_form_fields(prefix: str, assumption_ids: list[str], suggested: str | None = None) -> dict:
+    choices = ["Highest risk", *assumption_ids] if suggested is None else assumption_ids
+    target = st.selectbox("Assumption to test", choices, index=choices.index(suggested) if suggested else 0,
+                          key=f"{prefix}:test-a")
     experiment = {} if target == "Highest risk" else {"assumption_id": target}
     for field, label, limit in EXPERIMENT_FIELDS:
         widget = st.text_area if field in {"procedure", "threshold"} else st.text_input

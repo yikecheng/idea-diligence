@@ -17,12 +17,13 @@ streamlit run app.py
 
 Open the local URL printed by Streamlit. From **Workspace home**, choose **Catch Me Up on Anything** or **Return Deadline Assistant**. These examples replay curated public excerpts with zero provider requests.
 
-1. **Overview** ranks the assumptions and summarizes the most consequential unresolved question.
-2. **Evidence** shows exact source excerpts and lets you accept, question, or exclude each link. Your judgments are preserved alongside the original AI classification.
-3. **Experiment** gives you a procedure, measure, and decision threshold. Record real observations and choose whether to continue, revise, or stop.
-4. **Run trace** shows research calls, source coverage, warnings, and recorded founder activity. The HTML memo and Markdown exports live in **Overview**. Open the HTML memo in a browser to print or save it as PDF.
+1. **Overview** ranks the assumptions and highlights the current unresolved priority. Record a score change and why it matters.
+2. **Research** saves public discussion searches and lets you attach a source excerpt to a specific assumption.
+3. **Evidence** shows source passages and lets you accept, question, or exclude a link. A founder-supplied excerpt contributes context, and your proposed interpretation stays visible.
+4. **Experiment** records a measurable test, observations, and a decision to continue, revise, or stop. Plan a follow-up test when your priority changes and revisit earlier tests at any time.
+5. **Run trace** records the initial analysis and subsequent changes. **Overview** exports a decision memo with the risk revisions, sources, and test history. Open the HTML memo in a browser to print or save it as PDF.
 
-Runs, evidence reviews, and outcomes are stored in SQLite on this device. Earlier midpoint databases open in the new workspace and receive the additional tables automatically.
+Analyses and study records are stored in SQLite on this device. Earlier midpoint databases gain the additional tables when they open.
 
 ### Start a new idea without credentials
 
@@ -42,15 +43,23 @@ Live mode uses an OpenAI-compatible endpoint and Tavily search. Copy `.env.examp
 
 Product documentation can establish that a competing feature exists. Customer interviews and observed behavior are needed to learn whether the proposed audience has a recurring problem, switches, or pays. The experiment is a recommendation and remains for the founder to run.
 
+## Evaluate a class idea
+
+Open **Evaluation Lab** from the sidebar. Register an idea and freeze the founder’s known alternatives, beliefs, planned test, and matched research conditions. Run the three methods outside the lab, remove identifying tool names, and paste the outputs. Each reviewer scores the shuffled outputs against the same rubric. The founder records novelty and preference separately. Once all registered reviews and founder feedback are in, the lab reveals the methods and exports the complete case as JSON.
+
+To collect independent judgments, share only the shuffled packet with the reviewer and collect it before revealing the method labels. The lab is a local study organizer. It relies on the organizer for matched research effort, masking, and reviewer independence.
+
 ## Reproduce and inspect
 
 ```sh
 python -m pip install -r requirements-dev.txt
 python -m pytest -q
+python -m scripts.benchmark_workflow
 ```
 
 - [Architecture and engineering decisions](ARCHITECTURE.md)
 - [Validation and final evaluation plan](VALIDATION.md)
+- [Professor and founder review with engineering benchmark](docs/REVIEW_AND_BENCHMARK.md)
 - [Midpoint rehearsal and recording script](MIDPOINT_WALKTHROUGH.md)
 - [Startup pitch walkthrough](PITCH_WALKTHROUGH.md)
 - [Live demo steps and fallback](LIVE_DEMO_RUNBOOK.md)

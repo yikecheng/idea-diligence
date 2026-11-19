@@ -1,0 +1,132 @@
+{
+  "brief": {
+    "title": "ClassSpot Waitlist",
+    "customer": "Members and managers of independent fitness studios",
+    "problem": "Members miss class spots when someone cancels at short notice.",
+    "solution": "An opt-in alert when a space opens, with a way to claim it.",
+    "known": "One studio manager described the problem. No member use or payment data was collected."
+  },
+  "assumptions": [
+    {
+      "category": "feasibility",
+      "statement": "The booking feed reports class cancellations quickly enough to alert members.",
+      "impact": 5,
+      "uncertainty": 4,
+      "reason": "A stale alert can arrive after the space is gone.",
+      "query": "fitness studio booking cancellation webhook delivery"
+    },
+    {
+      "category": "desirability",
+      "statement": "Members who use one alert will claim another spot without a reminder.",
+      "impact": 4,
+      "uncertainty": 4,
+      "reason": "Repeat use shows whether the waitlist serves a recurring need.",
+      "query": "fitness class waitlist repeat usage"
+    },
+    {
+      "category": "defensibility",
+      "statement": "An existing studio tool does not already let members claim an opening from a cancellation alert.",
+      "impact": 5,
+      "uncertainty": 5,
+      "reason": "The claim flow is the proposed reason to choose ClassSpot.",
+      "query": "studio software cancellation waitlist claim alerts"
+    },
+    {
+      "category": "viability",
+      "statement": "Studio managers will pay a separate monthly fee for this service.",
+      "impact": 4,
+      "uncertainty": 3,
+      "reason": "Studios need to cover the cost of operating the waitlist.",
+      "query": "fitness studio waitlist software monthly pricing"
+    },
+    {
+      "category": "feasibility",
+      "statement": "The first version can support one booking system without custom work for each studio.",
+      "impact": 4,
+      "uncertainty": 2,
+      "reason": "Custom integrations would extend the pilot setup.",
+      "query": "fitness booking API studio integration"
+    }
+  ],
+  "sources": {
+    "incumbent": {
+      "search_for": "A3",
+      "title": "Sample incumbent waitlist product",
+      "url": "https://example.org/studio-waitlist",
+      "content": "When a participant cancels, a message goes to the waitlist with a link to claim the open spot.",
+      "raw_content": "Waitlist help\n\nWhen a participant cancels, a message goes to the waitlist with a link to claim the open spot."
+    },
+    "partner_docs": {
+      "search_for": "A1",
+      "title": "Sample booking documentation",
+      "url": "https://example.org/booking-events",
+      "content": "A cancellation event is sent immediately to enabled class-booking webhook subscriptions.",
+      "raw_content": "Booking events\n\nA cancellation event is sent immediately to enabled class-booking webhook subscriptions."
+    },
+    "partner_limits": {
+      "search_for": "A1",
+      "title": "Sample booking release notes",
+      "url": "https://example.org/booking-limits",
+      "content": "In peak hours cancellation events can be delayed by up to thirty minutes.",
+      "raw_content": "Pilot limitations\n\nIn peak hours cancellation events can be delayed by up to thirty minutes."
+    },
+    "repeat_blog": {
+      "search_for": "A2",
+      "title": "Sample vendor marketing",
+      "url": "https://example.org/studio-marketing",
+      "content": "Help your class members return more often with easy-to-use notifications.",
+      "raw_content": "Grow your studio\n\nHelp your class members return more often with easy-to-use notifications."
+    },
+    "price_snippet": {
+      "search_for": "A4",
+      "title": "Sample pricing search result",
+      "url": "https://example.org/studio-pricing",
+      "content": "Premium waitlists appear on plans that start at a separate monthly price.",
+      "raw_content": null
+    }
+  },
+  "proposal_links": [
+    {"assumption_id": "A3", "source": "incumbent", "stance": "challenges", "reason": "An existing tool advertises cancellation alerts with a claim link."},
+    {"assumption_id": "A1", "source": "partner_docs", "stance": "supports", "reason": "The documentation advertises immediate webhook delivery."},
+    {"assumption_id": "A2", "source": "repeat_blog", "stance": "supports", "reason": "The marketing page says class members will return more often."},
+    {"assumption_id": "A4", "source": "price_snippet", "stance": "challenges", "reason": "The search hit describes another paid plan, suggesting studio managers are already paying elsewhere."}
+  ],
+  "experiments": {
+    "repeat_use": {
+      "assumption_id": "A2",
+      "title": "Test a second voluntary waitlist claim",
+      "procedure": "Invite 8 members who claimed a pilot opening to use the same waitlist for 7 days. Send opening alerts only. Record a second claim for each participant.",
+      "metric": "Members who claim a second opening without a separate usage reminder.",
+      "threshold": "Continue if at least 4 of 8 claim again. Otherwise interview members who did not return.",
+      "time": "7 days after the first claim",
+      "cost": "Two hours of studio coordination plus any compensation"
+    },
+    "delivery": {
+      "assumption_id": "A1",
+      "title": "Measure cancellation delivery delay",
+      "procedure": "Stage 10 cancellations in a test booking account during peak hours and record elapsed time before each event is received.",
+      "metric": "Cancellations reported within 60 seconds.",
+      "threshold": "Continue with the webhook if at least 9 of 10 arrive within 60 seconds. Otherwise test another booking feed.",
+      "time": "Two weekday evenings",
+      "cost": "A test booking account and one developer hour"
+    },
+    "alternatives": {
+      "assumption_id": "A3",
+      "title": "Check competing cancellation-to-claim flows",
+      "procedure": "Inspect the test accounts or product walkthroughs of the 3 booking systems most common among 5 local studios.",
+      "metric": "Alternatives that provide a direct claim link in a cancellation alert.",
+      "threshold": "If at least 1 of 3 has this feature, interview studios about what their current workflow still misses.",
+      "time": "2 days",
+      "cost": "Trial access and three hours of research"
+    }
+  },
+  "ground_truth": {
+    "rank": ["A3", "A1", "A2", "A4", "A5"],
+    "baseline_statuses": {"A3": "challenged", "A1": "supported", "A2": "context", "A4": "context", "A5": "open"},
+    "baseline_links": {"incumbent": "challenges", "partner_docs": "supports", "repeat_blog": "context", "price_snippet": "context"},
+    "source_kinds": {"incumbent": "page_excerpt", "partner_docs": "page_excerpt", "partner_limits": "page_excerpt", "repeat_blog": "page_excerpt", "price_snippet": "search_snippet"},
+    "baseline_target": "A2",
+    "conflicting_target": "A1",
+    "no_evidence_target": "A3"
+  }
+}

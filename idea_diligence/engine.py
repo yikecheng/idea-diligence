@@ -89,10 +89,11 @@ each link. Include at most 12 relevant links and omit weak/unrelated results. Ea
 to the assumption in one short sentence, with no new quotations, citations, facts, or URLs. Use supports/challenges
 only when the supplied passage bears directly on the specific claim. Search snippets are context only. Use context
 for analogies, product marketing, or category-level evidence that cannot show real behavior of the stated customer.
-Competitor features can challenge feature novelty but cannot prove users will or will not buy, return, or switch.
+Competitor features can challenge feature novelty. For desirability and viability, treat public sources as context
+because customer behavior and the economics of this idea still need direct tests.
 The supplied assumptions are ordered highest risk first. Choose the experiment target after forming the links.
-For target selection, count each assumption/source pair once. Treat every search_snippet link as context and downgrade
-supports links for desirability and viability to context. Consider an assumption unresolved when its directional links
+For target selection, count each assumption/source pair once. Treat search_snippet links and links for desirability
+or viability as context. Consider an assumption unresolved when its directional links
 include both supports and challenges or include neither. Select the first unresolved assumption in the supplied order.
 When every assumption has only one directional stance, select the first assumption in the supplied order.
 Then propose one small experiment for the chosen assumption. Give specific participants or inputs, steps, one observable
@@ -279,7 +280,7 @@ def _validated_links(raw: Any, assumptions: list[dict[str, Any]], sources: list[
         if stance != "context" and kinds[sid] == "search_snippet":
             stance = "context"
             reason = "Search lead only. Inspect the original page before drawing a conclusion."
-        elif stance == "supports" and categories[aid] in ("desirability", "viability"):
+        elif stance != "context" and categories[aid] in ("desirability", "viability"):
             stance = "context"
             reason = "Background evidence. Customer behavior or economics still need a direct test."
         seen.add((aid, sid))
